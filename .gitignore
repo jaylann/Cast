@@ -36,3 +36,9 @@ models/
 .xcodebuild-cache/
 .xcodebuild-home/
 .xcodebuild-tmp/
+
+# Claude Code config
+.claude/
+
+# Project plan
+plan.md
