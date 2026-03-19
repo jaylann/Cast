@@ -1,0 +1,106 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug] "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out all required fields.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's happening and what should happen instead?
+      placeholder: "Cast crashes when generating output for..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Define a @Castable struct with...
+        2. Call model.cast(...)
+        3. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: What part of Cast is affected?
+      options:
+        - Grammar compilation
+        - "@Castable macro"
+        - Constrained sampler
+        - Tokenizer / caching
+        - Public API (CastModel, property wrappers)
+        - MLX integration
+        - Benchmarking
+        - Prompt engine
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (crash, incorrect output)
+        - High (major feature broken)
+        - Medium (feature partially broken)
+        - Low (minor inconvenience)
+    validations:
+      required: true
+
+  - type: input
+    id: swift-version
+    attributes:
+      label: Swift Version
+      placeholder: "6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS Version
+      placeholder: "15.2"
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: MLX Model Used
+      placeholder: "mlx-community/Qwen3-1.5B-4bit"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Output
+      description: Paste any relevant error messages or stack traces
+      render: shell

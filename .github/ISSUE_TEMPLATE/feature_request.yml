@@ -1,0 +1,70 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature] "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please provide details.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What feature do you want and why?
+      placeholder: "I'd like the ability to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Who benefits and how would they use this?
+      placeholder: "Developers who need to extract structured data would..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How should this work? Be specific.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: What part of Cast does this affect?
+      options:
+        - Grammar compilation
+        - "@Castable macro"
+        - Constrained sampler
+        - Tokenizer / caching
+        - Public API (CastModel, property wrappers)
+        - MLX integration
+        - Benchmarking
+        - Prompt engine
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know when this is done?
+      placeholder: |
+        - [ ] User can...
+        - [ ] System should...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Code examples, references, or related issues
