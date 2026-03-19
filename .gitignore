@@ -1,0 +1,38 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.playground/timeline.xcdatamodel
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store
+.Trashes
+
+# IDE
+*.swp
+*~
+.idea/
+.vscode/
+
+# Models (large, not committed)
+models/
+
+# Testing
+*.xcresult
+
+# Secrets
+.env
+
+# Xcode Build MCP
+.xcodebuild-cache/
+.xcodebuild-home/
+.xcodebuild-tmp/
