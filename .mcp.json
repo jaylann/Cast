@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "XCodeBuild": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "xcodebuildmcp@latest"
+      ],
+      "env": {}
+    },
+    "AppleDocs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "apple-doc-mcp-server@latest"
+      ],
+      "env": {}
+    },
+    "Context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}
