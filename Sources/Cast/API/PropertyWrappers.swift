@@ -318,6 +318,42 @@ extension DefaultValue: Decodable where Value: Decodable {
     }
 }
 
+@propertyWrapper
+public struct Validator<Value: Sendable>: Sendable {
+    public var wrappedValue: Value
+    public let transform: @Sendable (Value) -> Value
+
+    public init(wrappedValue: Value, _ transform: @escaping @Sendable (Value) -> Value) {
+        self.wrappedValue = wrappedValue
+        self.transform = transform
+    }
+}
+
+extension Validator: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Validator: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.transform = { $0 }
+    }
+}
+
+/// Internal protocol for type-erased validator transform application.
+protocol _ValidatorApplicable {
+    func _applyTransform(_ value: Any) -> Any
+}
+
+extension Validator: _ValidatorApplicable {
+    func _applyTransform(_ value: Any) -> Any {
+        guard let typed = value as? Value else { return value }
+        return transform(typed) as Any
+    }
+}
+
 // Minimal decoder that produces zero values for Bound types in CastRange
 struct _ZeroDecoder: Decoder {
     var codingPath: [CodingKey] = []
