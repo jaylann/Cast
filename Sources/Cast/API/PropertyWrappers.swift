@@ -198,6 +198,126 @@ extension Examples: Decodable where Value: Decodable {
     }
 }
 
+@propertyWrapper
+public struct Pattern<Value: Sendable>: Sendable {
+    public var wrappedValue: Value
+    public let pattern: String
+
+    public init(wrappedValue: Value, _ pattern: String) {
+        self.wrappedValue = wrappedValue
+        self.pattern = pattern
+    }
+}
+
+extension Pattern: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Pattern: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.pattern = ""
+    }
+}
+
+@propertyWrapper
+public struct Precision<Value: Sendable>: Sendable {
+    public var wrappedValue: Value
+    public let precision: Int
+
+    public init(wrappedValue: Value, _ precision: Int) {
+        self.wrappedValue = wrappedValue
+        self.precision = precision
+    }
+}
+
+extension Precision: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Precision: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.precision = 0
+    }
+}
+
+@propertyWrapper
+public struct Count<Value: Sendable>: Sendable {
+    public var wrappedValue: Value
+    public let count: Int
+
+    public init(wrappedValue: Value, _ count: Int) {
+        self.wrappedValue = wrappedValue
+        self.count = count
+    }
+}
+
+extension Count: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Count: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.count = 0
+    }
+}
+
+@propertyWrapper
+public struct Nullable<Value: Sendable>: Sendable {
+    public var wrappedValue: Value
+    public let isNullable: Bool
+
+    public init(wrappedValue: Value) {
+        self.wrappedValue = wrappedValue
+        self.isNullable = true
+    }
+}
+
+extension Nullable: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Nullable: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.isNullable = false
+    }
+}
+
+@propertyWrapper
+public struct DefaultValue<Value: Sendable>: Sendable {
+    public var wrappedValue: Value
+    public let defaultValue: Value
+
+    public init(wrappedValue: Value, _ defaultValue: Value) {
+        self.wrappedValue = wrappedValue
+        self.defaultValue = defaultValue
+    }
+}
+
+extension DefaultValue: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension DefaultValue: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.defaultValue = try Value(from: _ZeroDecoder())
+    }
+}
+
 // Minimal decoder that produces zero values for Bound types in CastRange
 struct _ZeroDecoder: Decoder {
     var codingPath: [CodingKey] = []
