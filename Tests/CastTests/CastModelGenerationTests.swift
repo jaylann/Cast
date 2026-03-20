@@ -2,6 +2,13 @@ import JSONSchema
 import Testing
 @testable import Cast
 
+// MARK: - Test types for auto-schema generation
+
+private struct SimpleReview: Codable, Sendable {
+    var title: String
+    var rating: Int
+}
+
 @Test func testCastThrowsModelNotLoaded() async throws {
     let model = CastModel()
     let schema = JSONSchema.object(properties: ["name": .string()], required: ["name"])
@@ -25,5 +32,30 @@ import Testing
         }
     } catch {
         Issue.record("Expected CastError, got \(type(of: error)): \(error)")
+    }
+}
+
+@Test func testAutoSchemaCastThrowsModelNotLoaded() async throws {
+    let model = CastModel()
+
+    await #expect(throws: CastError.self) {
+        let _: SimpleReview = try await model.cast("test")
+    }
+}
+
+@Test func testCastJSONThrowsModelNotLoaded() async throws {
+    let model = CastModel()
+
+    await #expect(throws: CastError.self) {
+        _ = try await model.castJSON("test", schema: SimpleReview.self)
+    }
+}
+
+@Test func testCastJSONExplicitSchemaThrowsModelNotLoaded() async throws {
+    let model = CastModel()
+    let schema = JSONSchema.object(properties: ["x": .string()], required: ["x"])
+
+    await #expect(throws: CastError.self) {
+        _ = try await model.castJSON("test", schema: schema)
     }
 }
