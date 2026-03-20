@@ -1,19 +1,18 @@
-//
-//  GrammarMatcherFactory.swift
-//  MLXStructured
-//
-//  Created by Ivan Petrukha on 20.09.2025.
-//
-
 import Hub
 import MLXLMCommon
 
+public struct TokenizerArtifacts: Sendable {
+    public let vocab: [String]
+    public let vocabType: Int32
+    public let stopTokenIds: [Int32]
+}
+
 public extension GrammarMaskedLogitProcessor {
-    static func from(
-        hub: HubApi = .shared, // TODO: Request changes in swift-transformers to make the tokenizer vocab (and some other properties) public
-        configuration: ModelConfiguration,
-        grammar: Grammar
-    ) async throws -> GrammarMaskedLogitProcessor {
+
+    static func loadTokenizerArtifacts(
+        hub: HubApi = .shared,
+        configuration: ModelConfiguration
+    ) async throws -> TokenizerArtifacts {
         let configurations = switch configuration.id {
         case let .id(id, revision):
             LanguageModelConfigurationFromHub(modelName: id, revision: revision, hubApi: hub)
@@ -27,7 +26,6 @@ public extension GrammarMaskedLogitProcessor {
             configurations.tokenizerData
         )
 
-        // VLMs (e.g. Qwen3.5) nest vocab_size inside text_config
         let vocabSize = modelConfig?.vocabSize.integer()
             ?? modelConfig?.textConfig.vocabSize.integer()
             ?? 0
@@ -77,12 +75,28 @@ public extension GrammarMaskedLogitProcessor {
             stopTokenIds.append(Int32(eosTokenId))
         }
 
-//        print("Vocab size:", vocab.count)
-//        print("Vocab type:", vocabType)
-//        print("Stop tokens Ids:", stopTokenIds)
-//        print("Grammar:", grammar)
+        return TokenizerArtifacts(vocab: vocab, vocabType: vocabType, stopTokenIds: stopTokenIds)
+    }
 
-        let grammarMatcher = try XGrammar(vocab: vocab, vocabType: vocabType, stopTokenIds: stopTokenIds, grammar: grammar)
+    static func from(
+        artifacts: TokenizerArtifacts,
+        grammar: Grammar
+    ) throws -> GrammarMaskedLogitProcessor {
+        let grammarMatcher = try XGrammar(
+            vocab: artifacts.vocab,
+            vocabType: artifacts.vocabType,
+            stopTokenIds: artifacts.stopTokenIds,
+            grammar: grammar
+        )
         return GrammarMaskedLogitProcessor(grammarMatcher: grammarMatcher)
+    }
+
+    static func from(
+        hub: HubApi = .shared,
+        configuration: ModelConfiguration,
+        grammar: Grammar
+    ) async throws -> GrammarMaskedLogitProcessor {
+        let artifacts = try await loadTokenizerArtifacts(hub: hub, configuration: configuration)
+        return try from(artifacts: artifacts, grammar: grammar)
     }
 }
