@@ -17,6 +17,7 @@ let package = Package(
         .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", from: "2.30.0"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.0"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema.git", from: "2.0.2"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
     ],
     targets: [
@@ -71,6 +72,8 @@ let package = Package(
                 .product(name: "MLXNN", package: "mlx-swift"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "Collections", package: "swift-collections"),
             ]
         ),
         .testTarget(
