@@ -14,8 +14,8 @@ let package = Package(
     ],
     dependencies: [
         // MLX Swift
-        .package(url: "https://github.com/ml-explore/mlx-swift.git", .upToNextMinor(from: "0.30.6")),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", .upToNextMinor(from: "0.30.6")),
+        .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.2"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", from: "2.30.0"),
         // SwiftSyntax for macros
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
     ],
