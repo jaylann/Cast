@@ -33,9 +33,9 @@ public enum PromptEngine {
         if let data = try? encoder.encode(schema),
            let str = String(data: data, encoding: .utf8) {
             parts.append("JSON Schema:")
-            parts.append("```json")
             parts.append(str)
-            parts.append("```")
+        } else {
+            parts.append("[Schema encoding failed]")
         }
 
         let guidance = annotations.sorted(by: { $0.key < $1.key }).compactMap { field, ann -> String? in
