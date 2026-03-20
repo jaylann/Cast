@@ -20,6 +20,11 @@ public final class CastModel: Sendable {
         _container = OSAllocatedUnfairLock(initialState: container)
     }
 
+    /// Test-only initializer for creating a CastModel without loading a real model.
+    init(_testContainer: ModelContainer? = nil) {
+        _container = OSAllocatedUnfairLock(initialState: _testContainer)
+    }
+
     public static func load(
         _ modelId: String,
         progress: (@Sendable (Progress) -> Void)? = nil
