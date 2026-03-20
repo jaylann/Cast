@@ -57,4 +57,23 @@ public enum PromptEngine {
 
         return parts.joined(separator: "\n")
     }
+
+    public static func buildClassificationPrompt(
+        userPrompt: String,
+        enumValues: [String],
+        system: String? = nil
+    ) -> (system: String, user: String) {
+        let systemPrompt = system ?? buildClassificationSystem(enumValues: enumValues)
+        return (system: systemPrompt, user: userPrompt)
+    }
+
+    private static func buildClassificationSystem(enumValues: [String]) -> String {
+        var parts: [String] = []
+        parts.append("You are a classifier.")
+        parts.append("Classify the input into exactly one of these categories: \(enumValues.joined(separator: ", ")).")
+        parts.append("")
+        parts.append("Respond with ONLY the category name as a JSON string.")
+        parts.append("No explanation, no markdown.")
+        return parts.joined(separator: "\n")
+    }
 }
