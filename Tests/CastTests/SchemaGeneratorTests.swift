@@ -32,6 +32,26 @@ private struct FloatStruct: Codable, Sendable {
     var value: Float
 }
 
+private enum Sentiment: String, CastEnum {
+    case positive, negative, neutral
+}
+
+private struct ConstrainedStruct: Codable, Castable {
+    @MaxLength(100) var title: String = ""
+    @MinLength(1) var name: String = ""
+    @CastRange(1...10) var rating: Int = 0
+    @MaxCount(5) var tags: [String] = []
+    @MinCount(1) var items: [String] = []
+    @OneOf(["USD", "EUR", "GBP"]) var currency: String = ""
+    @Description("A brief summary") var summary: String = ""
+    @Examples("Good", "Bad") var review: String = ""
+}
+
+private struct EnumFieldStruct: Castable {
+    var sentiment: Sentiment = .positive
+    var text: String = ""
+}
+
 // MARK: - ZeroSchemaDecoder Tests
 
 @Suite("ZeroSchemaDecoder")
@@ -161,6 +181,77 @@ struct SchemaGeneratorTests {
         let json = try jsonDict(schema)
         #expect(json["additionalProperties"] as? Bool == false)
     }
+
+    @Test("MaxLength constraint applied to schema")
+    func maxLengthConstraint() throws {
+        let schema = try SchemaGenerator.schema(for: ConstrainedStruct.self)
+        let prop = try extractProperty(from: schema, named: "title")
+        #expect(prop["type"] as? String == "string")
+        #expect(prop["maxLength"] as? Int == 100)
+    }
+
+    @Test("MinLength constraint applied to schema")
+    func minLengthConstraint() throws {
+        let schema = try SchemaGenerator.schema(for: ConstrainedStruct.self)
+        let prop = try extractProperty(from: schema, named: "name")
+        #expect(prop["type"] as? String == "string")
+        #expect(prop["minLength"] as? Int == 1)
+    }
+
+    @Test("CastRange constraint applied to integer schema")
+    func rangeConstraint() throws {
+        let schema = try SchemaGenerator.schema(for: ConstrainedStruct.self)
+        let prop = try extractProperty(from: schema, named: "rating")
+        #expect(prop["type"] as? String == "integer")
+        #expect(prop["minimum"] as? Int == 1)
+        #expect(prop["maximum"] as? Int == 10)
+    }
+
+    @Test("MaxCount constraint applied to array schema")
+    func maxCountConstraint() throws {
+        let schema = try SchemaGenerator.schema(for: ConstrainedStruct.self)
+        let prop = try extractProperty(from: schema, named: "tags")
+        #expect(prop["type"] as? String == "array")
+        #expect(prop["maxItems"] as? Int == 5)
+    }
+
+    @Test("MinCount constraint applied to array schema")
+    func minCountConstraint() throws {
+        let schema = try SchemaGenerator.schema(for: ConstrainedStruct.self)
+        let prop = try extractProperty(from: schema, named: "items")
+        #expect(prop["type"] as? String == "array")
+        #expect(prop["minItems"] as? Int == 1)
+    }
+
+    @Test("OneOf constraint produces enum schema")
+    func oneOfConstraint() throws {
+        let schema = try SchemaGenerator.schema(for: ConstrainedStruct.self)
+        let prop = try extractProperty(from: schema, named: "currency")
+        let enumValues = prop["enum"] as? [String]
+        #expect(enumValues != nil)
+        #expect(Set(enumValues!) == Set(["USD", "EUR", "GBP"]))
+    }
+
+    @Test("Description annotation extracted")
+    func descriptionAnnotation() throws {
+        let annotations = try SchemaGenerator.annotations(for: ConstrainedStruct.self)
+        #expect(annotations["summary"]?.description == "A brief summary")
+    }
+
+    @Test("Examples annotation extracted")
+    func examplesAnnotation() throws {
+        let annotations = try SchemaGenerator.annotations(for: ConstrainedStruct.self)
+        #expect(annotations["review"]?.examples == ["Good", "Bad"])
+    }
+
+    @Test("CastEnum field detected via CastSchemaProviding")
+    func castEnumField() throws {
+        let schema = try SchemaGenerator.schema(for: EnumFieldStruct.self)
+        let prop = try extractProperty(from: schema, named: "sentiment")
+        let enumValues = prop["enum"] as? [String]
+        #expect(enumValues != nil)
+        #expect(Set(enumValues!) == Set(["positive", "negative", "neutral"]))
+    }
 }
 
 // MARK: - Helpers
@@ -171,4 +262,27 @@ private func jsonDict(_ schema: JSONSchema) throws -> [String: Any] {
     let data = try encoder.encode(schema)
     let obj = try JSONSerialization.jsonObject(with: data)
     return obj as? [String: Any] ?? [:]
+}
+
+/// Extract a named property's schema dict from an object schema.
+/// Handles JSONSchema's __N__name ordering prefix format.
+private func extractProperty(from schema: JSONSchema, named name: String) throws -> [String: Any] {
+    let json = try jsonDict(schema)
+    guard let props = json["properties"] as? [String: Any] else {
+        throw TestError(message: "No properties in schema")
+    }
+    // Keys may be prefixed with __N__ for ordering
+    for (key, value) in props {
+        let cleanKey = key.replacingOccurrences(
+            of: #"__\d+__"#, with: "", options: .regularExpression
+        )
+        if cleanKey == name, let dict = value as? [String: Any] {
+            return dict
+        }
+    }
+    throw TestError(message: "Property '\(name)' not found. Keys: \(props.keys)")
+}
+
+private struct TestError: Error {
+    let message: String
 }

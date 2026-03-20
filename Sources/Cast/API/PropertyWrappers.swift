@@ -1,5 +1,8 @@
 import Foundation
 
+// All wrappers are Codable-transparent: they encode/decode the wrappedValue only.
+// Constraint metadata is used at schema-generation time (via Mirror), not at JSON encode/decode time.
+
 @propertyWrapper
 public struct MaxLength<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -11,6 +14,19 @@ public struct MaxLength<Value: Sendable>: Sendable {
     }
 }
 
+extension MaxLength: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension MaxLength: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.maxLength = 0
+    }
+}
+
 @propertyWrapper
 public struct MinLength<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -19,6 +35,19 @@ public struct MinLength<Value: Sendable>: Sendable {
     public init(wrappedValue: Value, _ minLength: Int) {
         self.wrappedValue = wrappedValue
         self.minLength = minLength
+    }
+}
+
+extension MinLength: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension MinLength: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.minLength = 0
     }
 }
 
@@ -35,6 +64,20 @@ public struct CastRange<Value: Sendable, Bound: Comparable & Sendable>: Sendable
     }
 }
 
+extension CastRange: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension CastRange: Decodable where Value: Decodable, Bound: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.lowerBound = try Bound(from: _ZeroDecoder())
+        self.upperBound = try Bound(from: _ZeroDecoder())
+    }
+}
+
 @propertyWrapper
 public struct MaxCount<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -43,6 +86,19 @@ public struct MaxCount<Value: Sendable>: Sendable {
     public init(wrappedValue: Value, _ maxCount: Int) {
         self.wrappedValue = wrappedValue
         self.maxCount = maxCount
+    }
+}
+
+extension MaxCount: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension MaxCount: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.maxCount = 0
     }
 }
 
@@ -57,6 +113,19 @@ public struct MinCount<Value: Sendable>: Sendable {
     }
 }
 
+extension MinCount: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension MinCount: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.minCount = 0
+    }
+}
+
 @propertyWrapper
 public struct OneOf<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -65,6 +134,19 @@ public struct OneOf<Value: Sendable>: Sendable {
     public init(wrappedValue: Value, _ values: [String]) {
         self.wrappedValue = wrappedValue
         self.values = values
+    }
+}
+
+extension OneOf: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension OneOf: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.values = []
     }
 }
 
@@ -79,6 +161,19 @@ public struct Description<Value: Sendable>: Sendable {
     }
 }
 
+extension Description: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Description: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.descriptionText = ""
+    }
+}
+
 @propertyWrapper
 public struct Examples<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -88,4 +183,52 @@ public struct Examples<Value: Sendable>: Sendable {
         self.wrappedValue = wrappedValue
         self.examples = examples
     }
+}
+
+extension Examples: Encodable where Value: Encodable {
+    public func encode(to encoder: Encoder) throws {
+        try wrappedValue.encode(to: encoder)
+    }
+}
+
+extension Examples: Decodable where Value: Decodable {
+    public init(from decoder: Decoder) throws {
+        self.wrappedValue = try Value(from: decoder)
+        self.examples = []
+    }
+}
+
+// Minimal decoder that produces zero values for Bound types in CastRange
+struct _ZeroDecoder: Decoder {
+    var codingPath: [CodingKey] = []
+    var userInfo: [CodingUserInfoKey: Any] = [:]
+    func container<Key: CodingKey>(keyedBy type: Key.Type) throws -> KeyedDecodingContainer<Key> {
+        throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: ""))
+    }
+    func unkeyedContainer() throws -> UnkeyedDecodingContainer {
+        throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: ""))
+    }
+    func singleValueContainer() throws -> SingleValueDecodingContainer {
+        _ZeroSingleValueContainer()
+    }
+}
+
+private struct _ZeroSingleValueContainer: SingleValueDecodingContainer {
+    var codingPath: [CodingKey] = []
+    func decodeNil() -> Bool { false }
+    func decode(_ type: Bool.Type) throws -> Bool { false }
+    func decode(_ type: String.Type) throws -> String { "" }
+    func decode(_ type: Double.Type) throws -> Double { 0 }
+    func decode(_ type: Float.Type) throws -> Float { 0 }
+    func decode(_ type: Int.Type) throws -> Int { 0 }
+    func decode(_ type: Int8.Type) throws -> Int8 { 0 }
+    func decode(_ type: Int16.Type) throws -> Int16 { 0 }
+    func decode(_ type: Int32.Type) throws -> Int32 { 0 }
+    func decode(_ type: Int64.Type) throws -> Int64 { 0 }
+    func decode(_ type: UInt.Type) throws -> UInt { 0 }
+    func decode(_ type: UInt8.Type) throws -> UInt8 { 0 }
+    func decode(_ type: UInt16.Type) throws -> UInt16 { 0 }
+    func decode(_ type: UInt32.Type) throws -> UInt32 { 0 }
+    func decode(_ type: UInt64.Type) throws -> UInt64 { 0 }
+    func decode<T: Decodable>(_ type: T.Type) throws -> T { try T(from: _ZeroDecoder()) }
 }

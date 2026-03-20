@@ -14,6 +14,15 @@ public struct FieldAnnotation: Sendable {
     }
 }
 
+// MARK: - Castable
+
+/// Types using Cast property wrappers must conform to Castable.
+/// Requires a no-arg init so constraint values from default initializers are preserved.
+/// The @Castable macro (Phase 2) will synthesize this automatically.
+public protocol Castable: Decodable, Sendable {
+    init()
+}
+
 // MARK: - SchemaGenerator
 
 public enum SchemaGenerator {
@@ -57,7 +66,17 @@ public enum SchemaGenerator {
 
     private static func build(_ type: (some Decodable & Sendable).Type) throws -> CacheEntry {
         let info = try ZeroSchemaDecoder.decode(type)
-        let mirror = Mirror(reflecting: info.zeroInstance)
+
+        // Use Castable.init() when available — preserves property wrapper constraint values.
+        // The ZeroSchemaDecoder instance loses constraints because wrappers' Decodable init
+        // can't reconstruct them from JSON.
+        let mirrorInstance: any Sendable
+        if let castableType = type as? any Castable.Type {
+            mirrorInstance = castableType.init() as! any Sendable
+        } else {
+            mirrorInstance = info.zeroInstance
+        }
+        let mirror = Mirror(reflecting: mirrorInstance)
 
         var constraintsMap: [String: FieldConstraints] = [:]
         var annotationsMap: [String: FieldAnnotation] = [:]
