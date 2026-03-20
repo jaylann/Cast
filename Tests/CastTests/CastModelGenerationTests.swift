@@ -23,5 +23,7 @@ import Testing
             Issue.record("Expected .modelNotLoaded, got \(error)")
             return
         }
+    } catch {
+        Issue.record("Expected CastError, got \(type(of: error)): \(error)")
     }
 }
