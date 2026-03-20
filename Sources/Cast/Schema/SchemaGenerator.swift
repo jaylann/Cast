@@ -138,7 +138,13 @@ public enum SchemaGenerator {
             if let constraints = constraintsMap[field.name] {
                 properties[field.name] = applyConstraints(constraints, kind: field.kind, description: desc)
             } else if let desc {
-                properties[field.name] = withDescription(field.kind, desc)
+                // For object/enum kinds, preserve the original schema (description goes in annotations only)
+                switch field.kind {
+                case .object, .enumeration:
+                    properties[field.name] = field.schema
+                default:
+                    properties[field.name] = withDescription(field.kind, desc)
+                }
             } else {
                 properties[field.name] = field.schema
             }
@@ -177,7 +183,10 @@ public enum SchemaGenerator {
             let itemSchema = baseSchema(for: element)
             return .array(description: description, items: itemSchema, minItems: c.minItems, maxItems: c.maxItems)
         default:
-            return withDescription(kind, description ?? "")
+            if let description {
+                return withDescription(kind, description)
+            }
+            return baseSchema(for: kind)
         }
     }
 
@@ -191,9 +200,7 @@ public enum SchemaGenerator {
         case .array(let element):
             return .array(description: desc, items: baseSchema(for: element))
         case .object, .enumeration:
-            // For object/enum with description, we'd need the original schema
-            // but description on nested objects is uncommon; return as-is
-            return .string(description: desc)
+            return baseSchema(for: kind)
         }
     }
 
