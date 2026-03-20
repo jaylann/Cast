@@ -13,14 +13,50 @@ let package = Package(
         .library(name: "Cast", targets: ["Cast"]),
     ],
     dependencies: [
-        // MLX Swift
-        .package(url: "https://github.com/ml-explore/mlx-swift.git", .upToNextMinor(from: "0.30.6")),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", .upToNextMinor(from: "0.30.6")),
-        // SwiftSyntax for macros
+        .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.2"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", from: "2.30.0"),
+        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.0"),
+        .package(url: "https://github.com/petrukha-ivan/swift-json-schema.git", from: "2.0.2"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
     ],
     targets: [
-        // Macro implementation (compiler plugin)
+        .target(
+            name: "CMLXStructured",
+            exclude: [
+                "xgrammar/web",
+                "xgrammar/tests",
+                "xgrammar/3rdparty/cpptrace",
+                "xgrammar/3rdparty/googletest",
+                "xgrammar/3rdparty/dlpack/contrib",
+                "xgrammar/3rdparty/dlpack/apps",
+                "xgrammar/3rdparty/dlpack/cmake",
+                "xgrammar/3rdparty/dlpack/docs",
+                "xgrammar/3rdparty/dlpack/tests",
+                "xgrammar/3rdparty/picojson",
+                "xgrammar/cpp/nanobind",
+                "xgrammar/cpp/testing.cc",
+                "xgrammar/cpp/testing.h",
+            ],
+            cSettings: [
+                .headerSearchPath("xgrammar/include"),
+                .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
+                .headerSearchPath("xgrammar/3rdparty/picojson"),
+            ],
+            cxxSettings: [
+                .headerSearchPath("xgrammar/include"),
+                .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
+                .headerSearchPath("xgrammar/3rdparty/picojson"),
+            ]
+        ),
+        .target(
+            name: "MLXStructured",
+            dependencies: [
+                .target(name: "CMLXStructured"),
+                .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "JSONSchema", package: "swift-json-schema"),
+            ]
+        ),
         .macro(
             name: "CastMacros",
             dependencies: [
@@ -28,18 +64,17 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
             ]
         ),
-        // Main library
         .target(
             name: "Cast",
             dependencies: [
                 "CastMacros",
+                "MLXStructured",
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXNN", package: "mlx-swift"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
             ]
         ),
-        // Tests
         .testTarget(
             name: "CastTests",
             dependencies: ["Cast"]
@@ -51,5 +86,13 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ]
         ),
-    ]
+        .testTarget(
+            name: "MLXStructuredTests",
+            dependencies: [
+                "MLXStructured",
+                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+            ]
+        ),
+    ],
+    cxxLanguageStandard: .gnucxx17
 )
