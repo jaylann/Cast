@@ -172,11 +172,23 @@ private struct _KeyedContainer<K: CodingKey>: KeyedDecodingContainerProtocol {
         if let schema = schemaForEnum(type) {
             decoder.fields.append(SchemaField(name: key.stringValue, schema: schema, kind: .enumeration))
             decoder.requiredFields.append(key.stringValue)
+            // Use CaseIterable.first to get a valid instance (zero decode fails for enums)
+            if let first = firstCase(of: type) {
+                return first
+            }
             return try forceDecode(type)
         }
 
         let nested = _Decoder()
         let value = try T(from: nested)
+
+        // Detect property wrappers: check for wrappedValue in Mirror
+        if let (schema, kind) = schemaForWrapper(value) {
+            decoder.fields.append(SchemaField(name: key.stringValue, schema: schema, kind: kind))
+            decoder.requiredFields.append(key.stringValue)
+            return value
+        }
+
         if !nested.fields.isEmpty {
             var props = OrderedDictionary<String, JSONSchema>()
             for field in nested.fields {
@@ -280,7 +292,12 @@ private struct _KeyedContainer<K: CodingKey>: KeyedDecodingContainerProtocol {
             return nil
         }
         let nested = _Decoder()
-        _ = try? T(from: nested)
+        if let value = try? T(from: nested) {
+            if let (schema, kind) = schemaForWrapper(value) {
+                decoder.fields.append(SchemaField(name: key.stringValue, schema: schema, kind: kind))
+                return nil
+            }
+        }
         if !nested.fields.isEmpty {
             var props = OrderedDictionary<String, JSONSchema>()
             for field in nested.fields {
@@ -405,6 +422,50 @@ private func schemaForEnum<T>(_ type: T.Type) -> JSONSchema? {
 /// Force-decode a type using our zero decoder.
 private func forceDecode<T: Decodable>(_ type: T.Type) throws -> T {
     try T(from: _Decoder())
+}
+
+/// Get the first case of a CaseIterable type, cast to T.
+private func firstCase<T>(of type: T.Type) -> T? {
+    guard let provider = type as? any _FirstCaseProvider.Type else { return nil }
+    return provider._firstCaseAny as? T
+}
+
+/// Protocol for getting first case of CaseIterable types at runtime.
+public protocol _FirstCaseProvider {
+    static var _firstCaseAny: Any { get }
+}
+
+/// Detect property wrappers by checking for `wrappedValue` in Mirror.
+/// Returns the schema for the wrapped value's type.
+private func schemaForWrapper(_ value: Any) -> (JSONSchema, SchemaKind)? {
+    let mirror = Mirror(reflecting: value)
+    guard let wrappedChild = mirror.children.first(where: { $0.label == "wrappedValue" }) else {
+        return nil
+    }
+    return schemaForValue(wrappedChild.value)
+}
+
+/// Map a runtime value to its JSONSchema based on its dynamic type.
+private func schemaForValue(_ value: Any) -> (JSONSchema, SchemaKind) {
+    switch value {
+    case is String: return (.string(), .string)
+    case is Int, is Int8, is Int16, is Int32, is Int64,
+         is UInt, is UInt8, is UInt16, is UInt32, is UInt64:
+        return (.integer(), .integer)
+    case is Double, is Float: return (.number(), .number)
+    case is Bool: return (.boolean(), .boolean)
+    default:
+        // Check for arrays
+        let typeName = String(describing: type(of: value))
+        if typeName.hasPrefix("Array<") {
+            if value is [String] { return (.array(items: .string()), .array(element: .string)) }
+            if value is [Int] { return (.array(items: .integer()), .array(element: .integer)) }
+            if value is [Double] { return (.array(items: .number()), .array(element: .number)) }
+            if value is [Bool] { return (.array(items: .boolean()), .array(element: .boolean)) }
+            return (.array(items: .string()), .array(element: .string))
+        }
+        return (.string(), .string)
+    }
 }
 
 // MARK: - Array detection protocol
