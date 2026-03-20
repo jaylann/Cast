@@ -34,8 +34,6 @@ let package = Package(
                 "xgrammar/3rdparty/dlpack/tests",
                 "xgrammar/3rdparty/picojson",
                 "xgrammar/cpp/nanobind",
-                "xgrammar/cpp/testing.cc",
-                "xgrammar/cpp/testing.h",
             ],
             cSettings: [
                 .headerSearchPath("xgrammar/include"),
