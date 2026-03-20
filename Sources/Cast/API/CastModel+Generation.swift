@@ -13,6 +13,8 @@ extension CastModel {
         system: String? = nil,
         config: CastConfiguration = CastConfiguration()
     ) async throws -> T {
+        Self.ensureErrorHandler()
+
         guard let container else {
             throw CastError.modelNotLoaded
         }
@@ -43,13 +45,24 @@ extension CastModel {
                     input: lmInput,
                     parameters: parameters,
                     context: context,
-                    grammar: grammar
+                    grammar: grammar,
+                    didGenerate: { _ in
+                        Task.isCancelled ? .stop : .more
+                    }
                 )
             }
         } catch let error as CastError {
+            cleanupGPU()
             throw error
         } catch {
+            cleanupGPU()
             throw CastError.generationFailed(error.localizedDescription)
+        }
+
+        cleanupGPU()
+
+        if let globalError = Self.checkAndClearMLXGlobalError() {
+            throw CastError.generationFailed(globalError)
         }
 
         do {
