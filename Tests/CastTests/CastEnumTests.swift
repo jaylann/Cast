@@ -49,4 +49,13 @@ struct CastEnumTests {
         let decoded = try JSONDecoder().decode(Priority.self, from: data)
         #expect(decoded == original)
     }
+
+    @Test("String CastEnum conforms to CastSchemaProviding")
+    func stringEnumCastSchemaProviding() {
+        #expect(Color.self is any CastSchemaProviding.Type)
+        let schema = Color.castSchema
+        let data = try! JSONEncoder().encode(schema)
+        let json = String(decoding: data, as: UTF8.self)
+        #expect(json.contains("red"))
+    }
 }
