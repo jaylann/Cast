@@ -34,11 +34,9 @@ extension CastModel {
     }
 
     func cleanupGPU() {
-        autoreleasepool {
-            try? withError {
-                Stream.gpu.synchronize()
-                GPU.clearCache()
-            }
+        try? withError {
+            Stream.gpu.synchronize()
+            Memory.clearCache()
         }
     }
 }
