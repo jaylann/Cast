@@ -187,4 +187,50 @@ extension CastModel {
             )
         }
     }
+
+    /// Classify input into a CastEnum value (String raw value).
+    public func classify<T: CastEnum>(
+        _ prompt: String,
+        as type: T.Type = T.self,
+        system: String? = nil,
+        config: CastConfiguration? = nil
+    ) async throws -> T where T.RawValue == String {
+        let schema = T.castSchema
+        let values = T.allCases.map { $0.rawValue }
+
+        let built = PromptEngine.buildClassificationPrompt(
+            userPrompt: prompt,
+            enumValues: values,
+            system: system
+        )
+
+        var classifyConfig = config ?? CastConfiguration()
+        classifyConfig.maxTokens = min(classifyConfig.maxTokens, 10)
+        classifyConfig.temperature = 0.0
+
+        return try await cast(built.user, as: type, schema: schema, system: built.system, config: classifyConfig)
+    }
+
+    /// Classify input into a CastEnum value (Int raw value).
+    public func classify<T: CastEnum>(
+        _ prompt: String,
+        as type: T.Type = T.self,
+        system: String? = nil,
+        config: CastConfiguration? = nil
+    ) async throws -> T where T.RawValue == Int {
+        let schema = T.castSchema
+        let values = T.allCases.map { String($0.rawValue) }
+
+        let built = PromptEngine.buildClassificationPrompt(
+            userPrompt: prompt,
+            enumValues: values,
+            system: system
+        )
+
+        var classifyConfig = config ?? CastConfiguration()
+        classifyConfig.maxTokens = min(classifyConfig.maxTokens, 10)
+        classifyConfig.temperature = 0.0
+
+        return try await cast(built.user, as: type, schema: schema, system: built.system, config: classifyConfig)
+    }
 }
