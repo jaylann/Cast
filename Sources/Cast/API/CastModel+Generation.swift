@@ -33,16 +33,23 @@ extension CastModel {
 
         let parameters = config.generateParameters
 
-        let result = try await container.perform { context in
-            let userInput = UserInput(prompt: fullPrompt)
-            let lmInput = try await context.processor.prepare(input: userInput)
+        let result: GenerateResult
+        do {
+            result = try await container.perform { context in
+                let userInput = UserInput(prompt: fullPrompt)
+                let lmInput = try await context.processor.prepare(input: userInput)
 
-            return try await MLXStructured.generate(
-                input: lmInput,
-                parameters: parameters,
-                context: context,
-                grammar: grammar
-            )
+                return try await MLXStructured.generate(
+                    input: lmInput,
+                    parameters: parameters,
+                    context: context,
+                    grammar: grammar
+                )
+            }
+        } catch let error as CastError {
+            throw error
+        } catch {
+            throw CastError.generationFailed(error.localizedDescription)
         }
 
         do {
