@@ -33,6 +33,7 @@ public enum SchemaGenerator {
     private struct CacheEntry: Sendable {
         let schema: JSONSchema
         let annotations: [String: FieldAnnotation]
+        let nullableFields: Set<String>
     }
 
     public static func schema(for type: (some Decodable & Sendable).Type) throws -> JSONSchema {
@@ -41,6 +42,10 @@ public enum SchemaGenerator {
 
     public static func annotations(for type: (some Decodable & Sendable).Type) throws -> [String: FieldAnnotation] {
         try cached(type).annotations
+    }
+
+    public static func nullableFields(for type: (some Decodable & Sendable).Type) throws -> Set<String> {
+        try cached(type).nullableFields
     }
 
     // MARK: - Private
@@ -112,6 +117,18 @@ public enum SchemaGenerator {
                     if let vals = prop.value as? [String] {
                         constraints.oneOfValues = vals
                     }
+                case "pattern":
+                    constraints.pattern = prop.value as? String
+                case "precision":
+                    if let p = prop.value as? Int {
+                        constraints.multipleOf = pow(10.0, -Double(p))
+                    }
+                case "count":
+                    constraints.exactCount = prop.value as? Int
+                case "isNullable":
+                    constraints.isNullable = (prop.value as? Bool) ?? false
+                case "defaultValue":
+                    break
                 case "descriptionText":
                     descriptionText = prop.value as? String
                 case "examples":
@@ -132,13 +149,17 @@ public enum SchemaGenerator {
             }
         }
 
+        var nullableFieldNames = Set<String>()
+        for (name, c) in constraintsMap where c.isNullable {
+            nullableFieldNames.insert(name)
+        }
+
         var properties = OrderedDictionary<String, JSONSchema>()
         for field in info.fields {
             let desc = annotationsMap[field.name]?.description
             if let constraints = constraintsMap[field.name] {
                 properties[field.name] = applyConstraints(constraints, kind: field.kind, description: desc)
             } else if let desc {
-                // For object/enum kinds, preserve the original schema (description goes in annotations only)
                 switch field.kind {
                 case .object, .enumeration:
                     properties[field.name] = field.schema
@@ -150,13 +171,14 @@ public enum SchemaGenerator {
             }
         }
 
+        let required = info.required.filter { !nullableFieldNames.contains($0) }
         let schema = JSONSchema.object(
             properties: properties,
-            required: info.required.isEmpty ? nil : info.required,
+            required: required.isEmpty ? nil : required,
             additionalProperties: .boolean(false)
         )
 
-        return CacheEntry(schema: schema, annotations: annotationsMap)
+        return CacheEntry(schema: schema, annotations: annotationsMap, nullableFields: nullableFieldNames)
     }
 
     /// Build a new JSONSchema from constraints, using SchemaKind to determine the type.
@@ -174,14 +196,14 @@ public enum SchemaGenerator {
 
         switch kind {
         case .string:
-            return .string(description: description, minLength: c.minLength, maxLength: c.maxLength)
+            return .string(description: description, minLength: c.minLength, maxLength: c.maxLength, pattern: c.pattern)
         case .integer:
             return .integer(description: description, minimum: c.intMin, maximum: c.intMax)
         case .number:
-            return .number(description: description, minimum: c.doubleMin, maximum: c.doubleMax)
+            return .number(description: description, multipleOf: c.multipleOf, minimum: c.doubleMin, maximum: c.doubleMax)
         case .array(let element):
             let itemSchema = baseSchema(for: element)
-            return .array(description: description, items: itemSchema, minItems: c.minItems, maxItems: c.maxItems)
+            return .array(description: description, items: itemSchema, minItems: c.exactCount ?? c.minItems, maxItems: c.exactCount ?? c.maxItems)
         default:
             if let description {
                 return withDescription(kind, description)
@@ -230,12 +252,18 @@ private struct FieldConstraints {
     var maxItems: Int?
     var minItems: Int?
     var oneOfValues: [String]?
+    var pattern: String?
+    var multipleOf: Double?
+    var exactCount: Int?
+    var isNullable: Bool = false
 
     var hasConstraints: Bool {
         maxLength != nil || minLength != nil ||
         intMin != nil || intMax != nil ||
         doubleMin != nil || doubleMax != nil ||
         maxItems != nil || minItems != nil ||
-        oneOfValues != nil
+        oneOfValues != nil ||
+        pattern != nil || multipleOf != nil ||
+        exactCount != nil || isNullable
     }
 }
