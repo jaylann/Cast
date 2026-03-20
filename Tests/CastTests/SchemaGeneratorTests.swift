@@ -1,4 +1,5 @@
 import Foundation
+import JSONSchema
 import Testing
 
 @testable import Cast
@@ -92,9 +93,12 @@ struct ZeroSchemaDecoderTests {
         let innerField = info.fields.first { $0.name == "inner" }!
         let json = try jsonDict(innerField.schema)
         #expect(json["type"] as? String == "object")
+        // Property keys include ordering prefixes (__N__name) from JSONSchema encoding
         let props = json["properties"] as? [String: Any]
-        #expect(props?["name"] != nil)
-        #expect(props?["age"] != nil)
+        #expect(props != nil)
+        let propKeys = props?.keys.joined(separator: ",") ?? ""
+        #expect(propKeys.contains("name"))
+        #expect(propKeys.contains("age"))
     }
 
     @Test("Bool field produces boolean schema")

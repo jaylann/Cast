@@ -1,16 +1,6 @@
 import Foundation
 import JSONSchema
 
-public struct FieldAnnotation: Sendable {
-    public let description: String?
-    public let examples: [String]?
-
-    public init(description: String? = nil, examples: [String]? = nil) {
-        self.description = description
-        self.examples = examples
-    }
-}
-
 public enum PromptEngine {
 
     public static func buildPrompt(
