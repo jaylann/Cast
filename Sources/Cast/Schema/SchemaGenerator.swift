@@ -127,7 +127,7 @@ public enum SchemaGenerator {
                     constraints.exactCount = prop.value as? Int
                 case "isNullable":
                     constraints.isNullable = (prop.value as? Bool) ?? false
-                case "defaultValue":
+                case "defaultValue", "transform":
                     break
                 case "descriptionText":
                     descriptionText = prop.value as? String

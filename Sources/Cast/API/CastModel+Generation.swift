@@ -179,7 +179,7 @@ extension CastModel {
         }
 
         do {
-            return try JSONDecoder().decode(T.self, from: Data(result.output.utf8))
+            return try ValidatorSupport.decode(T.self, from: Data(result.output.utf8))
         } catch {
             throw CastError.decodingFailed(
                 rawOutput: result.output,
