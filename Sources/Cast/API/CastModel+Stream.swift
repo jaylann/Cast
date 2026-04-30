@@ -21,14 +21,22 @@ public extension CastModel {
     /// ```
     ///
     /// The stream terminates with ``CastError`` on schema/generation failure,
-    /// honors `Task.cancel()`, and respects ``CastConfiguration/timeout``.
+    /// honors `Task.cancel()` (surfaced as ``CastError/cancelled(partialOutput:)``
+    /// carrying the last decoded snapshot, if any), and respects
+    /// ``CastConfiguration/timeout``.
+    ///
+    /// Buffering uses ``AsyncThrowingStream/Continuation/BufferingPolicy/bufferingNewest(_:)``
+    /// with a small bound: a slow consumer paired with a fast model will see
+    /// the *latest* snapshots, not every intermediate one. Streaming UIs only
+    /// care about the most recent state, so this trades historical fidelity
+    /// for a memory ceiling.
     func castStream<T: Castable>(
         _ prompt: String,
         as type: T.Type = T.self,
         system: String? = nil,
         config: CastConfiguration = CastConfiguration()
     ) -> AsyncThrowingStream<PartialResult<T>, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(8)) { continuation in
             let task = Task {
                 do {
                     try await runStream(
@@ -88,6 +96,9 @@ public extension CastModel {
         let parameters = config.generateParameters
         let maxTokens = max(config.maxTokens, 1)
 
+        // Cross-isolation handle for the in-flight buffer so the cancellation
+        // catch (outside the perform closure) can recover the partial bytes.
+        let bufferHolder = StreamBufferHolder()
         do {
             try await withInFlightRegistration {
                 try await withGenerationTimeout(config.timeout) {
@@ -104,27 +115,38 @@ public extension CastModel {
 
                         var buffer = ""
                         var lastTokenCount = 0
+                        var lastProgress = 0.0
 
                         for try await chunk in stream {
                             if Task.isCancelled { break }
                             buffer.append(chunk.chunk)
                             lastTokenCount = chunk.totalTokens
+                            bufferHolder.set(buffer)
 
                             if let snapshot = decodePartial(
                                 T.self,
                                 from: buffer,
                                 tokenCount: lastTokenCount,
-                                maxTokens: maxTokens
+                                maxTokens: maxTokens,
+                                minProgress: lastProgress
                             ) {
+                                lastProgress = snapshot.progress
                                 continuation.yield(snapshot)
                             }
                         }
+
+                        // Cancellation must not be reported as a decode/repair
+                        // failure: a half-formed buffer almost always fails
+                        // `yieldTerminal`, masking the real cause. Surface the
+                        // outer `Task.isCancelled` check below instead.
+                        if Task.isCancelled { return }
 
                         try yieldTerminal(
                             T.self,
                             buffer: buffer,
                             tokenCount: lastTokenCount,
                             maxTokens: maxTokens,
+                            minProgress: lastProgress,
                             config: config,
                             continuation: continuation
                         )
@@ -136,7 +158,7 @@ public extension CastModel {
             throw error
         } catch is CancellationError {
             cleanupGPU()
-            throw CastError.cancelled(partialOutput: nil)
+            throw CastError.cancelled(partialOutput: bufferHolder.snapshot())
         } catch {
             cleanupGPU()
             throw CastError.generationFailed(error.localizedDescription)
@@ -149,8 +171,29 @@ public extension CastModel {
         }
 
         if Task.isCancelled {
-            throw CastError.cancelled(partialOutput: nil)
+            throw CastError.cancelled(partialOutput: bufferHolder.snapshot())
         }
+    }
+}
+
+/// Sendable bridge for the in-flight stream buffer. Lets the post-cancel
+/// `catch` block recover the last bytes accumulated inside the perform
+/// closure (which runs on a different actor) so they can ride along on
+/// `CastError.cancelled(partialOutput:)`.
+private final class StreamBufferHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer = ""
+
+    func set(_ newValue: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        buffer = newValue
+    }
+
+    func snapshot() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return buffer.isEmpty ? nil : buffer
     }
 }
 
@@ -158,7 +201,8 @@ private func decodePartial<T: Castable>(
     _: T.Type,
     from buffer: String,
     tokenCount: Int,
-    maxTokens: Int
+    maxTokens: Int,
+    minProgress: Double
 ) -> PartialResult<T>? {
     let candidate: String
     switch JSONRepair.repair(buffer) {
@@ -177,7 +221,8 @@ private func decodePartial<T: Castable>(
         return nil
     }
 
-    let progress = min(Double(tokenCount) / Double(maxTokens), 1.0)
+    let raw = min(Double(tokenCount) / Double(maxTokens), 1.0)
+    let progress = max(raw, minProgress)
     return PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount)
 }
 
@@ -186,6 +231,7 @@ private func yieldTerminal<T: Castable>(
     buffer: String,
     tokenCount: Int,
     maxTokens: Int,
+    minProgress: Double,
     config: CastConfiguration,
     continuation: AsyncThrowingStream<PartialResult<T>, Error>.Continuation
 ) throws {
@@ -216,6 +262,7 @@ private func yieldTerminal<T: Castable>(
         )
     }
 
-    let progress = min(Double(tokenCount) / Double(maxTokens), 1.0)
+    let raw = min(Double(tokenCount) / Double(maxTokens), 1.0)
+    let progress = max(raw, minProgress)
     continuation.yield(PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount))
 }

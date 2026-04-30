@@ -189,6 +189,46 @@ struct PartiallyGeneratedExpansionTests {
         )
     }
 
+    @Test("Optional source field stays single-Optional in the partial mirror")
+    func optionalFields() {
+        assertMacroExpansion(
+            """
+            @Castable
+            struct Foo {
+                var nickname: String?
+                var nested: Inner?
+            }
+            """,
+            expandedSource: """
+            struct Foo {
+                var nickname: String?
+                var nested: Inner?
+
+                static let castSchema: JSONSchema = .object(
+                    properties: OrderedDictionary(dictionaryLiteral:
+                        ("nickname", .string()),
+                        ("nested", Inner.castSchema)
+                    ),
+                    required: nil,
+                    additionalProperties: .boolean(false)
+                )
+
+                init() {
+                }
+
+                struct PartiallyGenerated: Sendable, Decodable {
+                    var nickname: String?
+                    var nested: Inner.PartiallyGenerated?
+                }
+            }
+
+            extension Foo: Castable, Decodable {
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     @Test("array of nested @Castable recurses through element")
     func nestedArray() {
         assertMacroExpansion(

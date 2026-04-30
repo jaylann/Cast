@@ -31,6 +31,11 @@ public func generate(
 /// One incremental yield from ``generateStream(input:parameters:context:grammar:)``.
 public struct GrammarChunk: Sendable {
     public let chunk: String
+    /// Approximate running token count. Derived from chunk arrivals during
+    /// generation (one token per chunk under MLXLMCommon's current pipeline)
+    /// and corrected to the authoritative count once `.info` lands at the
+    /// tail of the stream — that final correction is delivered as an empty
+    /// `chunk: ""` yield so consumers see the accurate total.
     public let totalTokens: Int
 
     public init(chunk: String, totalTokens: Int) {
@@ -42,6 +47,10 @@ public struct GrammarChunk: Sendable {
 /// Drive a constrained generation and stream decoded text chunks as they arrive,
 /// alongside the running token count. The stream finishes when the model stops
 /// (EOS, max tokens, or downstream cancellation of the consuming task).
+///
+/// `GrammarChunk.totalTokens` is approximate during generation (chunk-counted,
+/// not real-token-counted). The final yield carries the authoritative count
+/// from `.info` — typically as an empty `chunk: ""` correction.
 public func generateStream(
     input: LMInput,
     parameters: GenerateParameters = GenerateParameters(),
@@ -75,7 +84,11 @@ public func generateStream(
                     totalTokens += 1
                     continuation.yield(GrammarChunk(chunk: text, totalTokens: totalTokens))
                 case let .info(info):
+                    // `.info` arrives at the tail with the authoritative token
+                    // count. Yield an empty-text correction so consumers see
+                    // the accurate total instead of the chunk-counted estimate.
                     totalTokens = info.generationTokenCount
+                    continuation.yield(GrammarChunk(chunk: "", totalTokens: totalTokens))
                 case .toolCall:
                     continue
                 }

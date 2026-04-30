@@ -12,6 +12,23 @@
 ///     @MinCount(1) var ingredients: [String]
 /// }
 /// ```
+///
+/// ## Supported field types
+///
+/// - Primitives: `String`, `Bool`, `Int`/`UInt` and their sized variants,
+///   `Double`, `Float`.
+/// - Arrays of primitives or other `@Castable` types.
+/// - Other `@Castable` types (nested structurally).
+/// - `Optional` of any of the above.
+///
+/// Fields whose declared type is *neither* a known primitive *nor* another
+/// `@Castable` struct (for example `Date`, `URL`, raw enums, custom types)
+/// are projected into the synthesized `PartiallyGenerated` mirror as
+/// `<TypeName>.PartiallyGenerated?`. Compilation will fail with an
+/// "unknown member `PartiallyGenerated`" error unless the type itself
+/// declares one. If you need to embed such a type, wrap it in a tiny
+/// `@Castable` struct with a single field, or pre-convert to a supported
+/// primitive (e.g. ISO-8601 `String` for dates) before generation.
 @attached(
     member,
     names: named(castSchema), named(init), named(PartiallyGenerated)

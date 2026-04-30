@@ -9,9 +9,13 @@ import Foundation
 public struct PartialResult<T: Castable>: Sendable {
     /// Decoded snapshot. Properties not yet emitted are `nil`.
     public let value: T.PartiallyGenerated
-    /// Tokens consumed divided by ``CastConfiguration/maxTokens``, clamped to `0...1`.
+    /// Tokens consumed divided by ``CastConfiguration/maxTokens``, clamped to `0...1`
+    /// and guaranteed monotonically non-decreasing across the stream.
     public let progress: Double
-    /// Number of tokens generated up to (and including) this snapshot.
+    /// Approximate count of tokens generated up to (and including) this snapshot.
+    /// Best-effort: derived from MLX chunk yields, may be `0` for very early
+    /// snapshots if the underlying transport delivers byte-granular chunks.
+    /// An authoritative count arrives with the terminal snapshot.
     public let tokenCount: Int
 
     public init(value: T.PartiallyGenerated, progress: Double, tokenCount: Int) {
