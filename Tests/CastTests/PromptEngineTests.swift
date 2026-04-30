@@ -71,8 +71,9 @@ struct PromptEngineTests {
         )
 
         // Per-call nonce: assert structural shape rather than literal text.
-        let openPattern = #/<<<SOURCE ([0-9a-f]{8})>>>/#
-        let closePattern = #/<<<END SOURCE ([0-9a-f]{8})>>>/#
+        // UUIDs are upper-case hex with hyphens: 8-4-4-4-12.
+        let openPattern = #/<<<SOURCE-([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})>>>/#
+        let closePattern = #/<<<END-SOURCE-([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})>>>/#
 
         guard
             let openMatch = result.user.firstMatch(of: openPattern),
@@ -90,7 +91,7 @@ struct PromptEngineTests {
 
     @Test func extractionDelimiterNonceIsPerCall() {
         let schema = JSONSchema.object()
-        let pattern = #/<<<SOURCE ([0-9a-f]{8})>>>/#
+        let pattern = #/<<<SOURCE-([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})>>>/#
         let first = PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
         let second = PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
 
