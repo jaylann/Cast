@@ -33,6 +33,11 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 
 ## Topics
 
+### Getting Started
+
+- <doc:GettingStarted>
+- <doc:Architecture>
+
 ### Examples
 
 - <doc:HelloCast>
@@ -52,6 +57,7 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 - ``CastModel``
 - ``CastConfiguration``
 - ``CastError``
+- ``JSONRepair``
 
 ### Property Wrappers
 

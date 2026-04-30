@@ -6,7 +6,7 @@ Think `as?` for LLMs.
 
 📚 **[API Documentation](https://jaylann.github.io/Cast/documentation/cast/)** — auto-generated from source via DocC.
 
-> **Status: pre-1.0.** Phases 0–2 (foundation, schema/wrappers, `@Castable` macro, tokenizer caching, `prepare`, `classify`) are shipped. Phase 3 (streaming, per-model chat templates, benchmarks, DocC, example app) is in flight — see [open issues](https://github.com/jaylann/Cast/issues).
+> **Status: pre-1.0.** Phases 0–2 (foundation, schema/wrappers, `@Castable` macro, tokenizer caching, `prepare`, `classify`) are shipped. Phase 3 in progress: timeouts/cancellation, JSON repair, iOS lifecycle, DocC are landed; streaming, benchmarks, per-model chat templates, and the demo app are still in flight — see [open issues](https://github.com/jaylann/Cast/issues).
 
 ---
 
@@ -57,6 +57,42 @@ print(recipe.prepMinutes)   // 15
 ```
 
 The `@Castable` macro generates a JSON schema from your struct (and the property-wrapper annotations), `cast()` constrains the LLM's output to that schema during decoding, and the result is decoded into your type. If the LLM tries to produce invalid JSON, the sampler masks the bad tokens before they're emitted — so decoding succeeds.
+
+## How Cast compares
+
+| | Cast | Apple `@Generable` (FoundationModels) | `outlines` (Python) | Prompting |
+|---|---|---|---|---|
+| Type-safety | ✅ Decoded into your Swift type | ✅ | ✅ | ❌ Hand-parse strings |
+| Runs offline / on-device | ✅ Apple Silicon | ✅ Apple Silicon | ❌ Server-side | Depends |
+| Works with any MLX model | ✅ | ❌ Apple Intelligence only | n/a | n/a |
+| Compile-time grammar | ✅ Swift macro | ❌ Runtime | ❌ Runtime | n/a |
+| Constraints (range, count, regex) | ✅ Property wrappers | Limited | ✅ | ❌ |
+| Constrained sampling overhead | Single-digit % vs unconstrained | n/a (closed) | Similar | n/a |
+| Min platform | macOS 14 / iOS 17 | macOS 26 / iOS 26 | Linux+CUDA | Anywhere |
+
+The boundary is roughly: pick `@Generable` when you only ship to iOS 26+ and
+are happy with Apple Intelligence; pick Cast when you want to choose your
+own MLX model, target older OSes, or you need property-wrapper constraints.
+
+## Recommended models
+
+These mlx-community 4-bit instruct checkpoints are known to behave well
+with Cast's grammar-constrained decoding. The first one is a good default.
+
+| Model | When to use |
+|---|---|
+| `mlx-community/Llama-3.2-3B-Instruct-4bit` | Default. Small (≈2 GB), fast, decent quality. |
+| `mlx-community/Qwen2.5-7B-Instruct-4bit` | Better quality on extraction / reasoning. ~5 GB. |
+| `mlx-community/Mistral-7B-Instruct-v0.3-4bit` | Strong instruction-following alternative. ~5 GB. |
+
+Avoid base / completion checkpoints. The grammar will keep the JSON
+syntactically valid, but content quality drops sharply without instruct
+tuning. Per-model chat templates are tracked in [#37](https://github.com/jaylann/Cast/issues/37).
+
+## Benchmarks
+
+Coming with [#38](https://github.com/jaylann/Cast/issues/38) (CastBench harness)
+and [#39](https://github.com/jaylann/Cast/issues/39) (overhead comparison).
 
 ## What you can put in a `@Castable` type
 
@@ -124,9 +160,10 @@ Each `(model, type)` pair compiles its grammar on first use. To pay that cost at
 try await model.prepare(Recipe.self, Sentiment.self)
 ```
 
-### Cancellation
+### Token budget
 
-Until full timeout/cancellation lands (#41), use the `didGenerate` callback:
+To stop early on a token count (cheaper than a wall-clock deadline), use
+`didGenerate`:
 
 ```swift
 let r: Recipe = try await model.cast(
@@ -137,18 +174,56 @@ let r: Recipe = try await model.cast(
 )
 ```
 
-The closure receives cumulative token count after each step and returns `.stop` to end generation early. `Task.cancel()` is also honored.
+The closure receives cumulative token count after each step and returns
+`.stop` to end generation early.
 
 ## Configuration
 
 ```swift
 var config = CastConfiguration()
 config.maxTokens = 512
-config.temperature = 0.0   // deterministic
+config.temperature = 0.0       // deterministic
 config.topP = 0.95
+config.timeout = .seconds(10)  // CastError.timedOut on deadline
+config.repairTruncatedJSON = true  // default; auto-close unfinished JSON tails
 
 let r: Recipe = try await model.cast("...", config: config)
 ```
+
+### Timeouts and cancellation
+
+```swift
+// Wall-clock deadline.
+var c = CastConfiguration()
+c.timeout = .seconds(10)
+do {
+    let r: Recipe = try await model.cast("...", config: c)
+} catch let CastError.timedOut(partial) {
+    print("hit deadline; partial:", partial as Any)
+}
+
+// External cancel.
+let task = Task<Recipe, Error> { try await model.cast("...") }
+task.cancel()
+do {
+    _ = try await task.value
+} catch let CastError.cancelled(partial) {
+    print("cancelled; partial:", partial as Any)
+}
+```
+
+### iOS background safety (opt-in)
+
+```swift
+let model = try await CastModel.load(...)
+model.enableBackgroundSafety()
+```
+
+When the app enters background, every in-flight `cast()` is cancelled (each
+throws `CastError.cancelled`) and the GPU is synchronized — without this,
+iOS will SIGKILL Metal users that hold the GPU while backgrounded. On
+memory warnings the GPU cache is freed; running work is not cancelled.
+Call `model.abortInFlight()` from a "Stop" button to cancel manually.
 
 ## Caller-managed model loading
 
@@ -158,16 +233,20 @@ If you already manage `ModelContainer` lifetime (e.g., shared across components)
 let model = CastModel(wrapping: existingContainer, configuration: existingConfig)
 ```
 
-## Roadmap (Phase 3, all open)
+## Roadmap
 
+Shipped in Phase 3:
+- Truncated JSON detection / repair ([#40](https://github.com/jaylann/Cast/issues/40))
+- Timeout & cancellation ([#41](https://github.com/jaylann/Cast/issues/41))
+- Background/foreground GPU lifecycle, opt-in ([#42](https://github.com/jaylann/Cast/issues/42))
+- DocC site ([#45](https://github.com/jaylann/Cast/issues/45))
+
+Still open:
 - Streaming `castStream() → AsyncSequence<PartialResult<T>>` ([#35](https://github.com/jaylann/Cast/issues/35))
 - `extract()` extraction-optimized convenience ([#36](https://github.com/jaylann/Cast/issues/36))
 - Per-model chat templates (Llama / Qwen / Mistral) ([#37](https://github.com/jaylann/Cast/issues/37))
 - CastBench: tok/s, latency, grammar overhead ([#38](https://github.com/jaylann/Cast/issues/38), [#39](https://github.com/jaylann/Cast/issues/39))
-- Truncated JSON detection / repair ([#40](https://github.com/jaylann/Cast/issues/40))
-- Timeout & cancellation ([#41](https://github.com/jaylann/Cast/issues/41))
-- Background/foreground GPU lifecycle ([#42](https://github.com/jaylann/Cast/issues/42))
-- DocC ([#45](https://github.com/jaylann/Cast/issues/45)) and example iOS app ([#44](https://github.com/jaylann/Cast/issues/44))
+- Example iOS app — blocked on streaming ([#44](https://github.com/jaylann/Cast/issues/44))
 
 If you're migrating an existing project to `Cast` and hitting friction (Sendable/Decodable conformance, output quality, etc.), see `MIGRATION.md`.
 

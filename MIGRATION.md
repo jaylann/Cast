@@ -134,7 +134,16 @@ Subsequent calls reuse the cached grammar.
 
 ### Cap runaway generation
 
-Until #41 lands, use the `didGenerate` callback as a token budget:
+Set a wall-clock timeout on the call:
+
+```swift
+var config = CastConfiguration()
+config.timeout = .seconds(10)
+let r: Recipe = try await model.cast("...", config: config)
+// throws CastError.timedOut(partialOutput:) on deadline
+```
+
+For a token-count cap (cheaper than wall clock), use `didGenerate`:
 
 ```swift
 let r: Recipe = try await model.cast(
@@ -145,7 +154,10 @@ let r: Recipe = try await model.cast(
 )
 ```
 
-Or: support `Task.cancel()` from your call site — the loop honors it.
+`Task.cancel()` from your call site is also honored — the call throws
+`CastError.cancelled(partialOutput:)`. **Behavior change since 0.x:**
+cancellation no longer surfaces as `CastError.decodingFailed` — match the
+new case if you previously caught the decoding-failed path.
 
 ### Gotcha: post-decode constraint values are zero
 
@@ -172,11 +184,20 @@ This is intentional but surprising; we'd like to fix it without breaking the wra
 
 ### Truncation
 
-If the model emits valid JSON up to the `maxTokens` limit and then stops mid-object, decoding fails. Repair is #40. Workarounds:
+If the model emits valid JSON up to the `maxTokens` limit and then stops mid-object, Cast attempts a best-effort repair (close strings/containers, drop dangling fragments). When repair succeeds, decoding proceeds normally; when it can't, the call throws ``CastError/repairFailed(rawOutput:reason:)`` with the original (un-repaired) tail.
+
+To opt out:
+
+```swift
+var config = CastConfiguration()
+config.repairTruncatedJSON = false
+```
+
+Other knobs:
 
 - Bump `config.maxTokens`.
 - Trim your schema (smaller types decode faster, less risk of truncation).
-- Use `castJSON` and inspect the raw output to confirm the issue is truncation vs. a hallucinated field.
+- Use `castJSON` and inspect the raw output to confirm the issue is truncation vs. a hallucinated field. `castJSON` never repairs — by contract, callers asked for raw bytes.
 
 ---
 
@@ -185,9 +206,9 @@ If the model emits valid JSON up to the `maxTokens` limit and then stops mid-obj
 | Issue | Status | Workaround until then |
 |---|---|---|
 | Per-model chat templates ([#37](https://github.com/jaylann/Cast/issues/37)) | open | Use instruct-tuned models; the generic template works best with them |
-| Truncated JSON detection / repair ([#40](https://github.com/jaylann/Cast/issues/40)) | open | Increase `maxTokens`; reduce schema size |
-| Timeout / cancellation API ([#41](https://github.com/jaylann/Cast/issues/41)) | open | `didGenerate` callback or `Task.cancel()` |
-| Background/foreground GPU lifecycle ([#42](https://github.com/jaylann/Cast/issues/42)) | open | Avoid generating while backgrounded |
+| Truncated JSON detection / repair ([#40](https://github.com/jaylann/Cast/issues/40)) | shipped | `repairTruncatedJSON` defaults `true`; opt out via `CastConfiguration` |
+| Timeout / cancellation API ([#41](https://github.com/jaylann/Cast/issues/41)) | shipped | `CastConfiguration.timeout`, `CastError.timedOut`, `CastError.cancelled` |
+| Background/foreground GPU lifecycle ([#42](https://github.com/jaylann/Cast/issues/42)) | shipped (iOS, opt-in) | `model.enableBackgroundSafety()` |
 | Streaming partial decoding ([#35](https://github.com/jaylann/Cast/issues/35)) | open | Currently: blocking `cast()` only |
 | `extract()` convenience ([#36](https://github.com/jaylann/Cast/issues/36)) | open | Use `cast` with a dedicated extraction `@Castable` type |
 

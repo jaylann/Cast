@@ -3,6 +3,11 @@ import Foundation
 // All wrappers are Codable-transparent: they encode/decode the wrappedValue only.
 // Constraint metadata is used at schema-generation time (via Mirror), not at JSON encode/decode time.
 
+/// Caps a `String` field's length in the generated JSON schema.
+///
+/// ```swift
+/// @MaxLength(280) var tweet: String = ""
+/// ```
 @propertyWrapper
 public struct MaxLength<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -27,6 +32,8 @@ extension MaxLength: Decodable where Value: Decodable {
     }
 }
 
+/// Requires a `String` field to be at least `minLength` characters in the
+/// generated schema.
 @propertyWrapper
 public struct MinLength<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -51,6 +58,11 @@ extension MinLength: Decodable where Value: Decodable {
     }
 }
 
+/// Constrains a numeric field to the inclusive range `lo...hi` in the schema.
+///
+/// ```swift
+/// @CastRange(0...100) var score: Int = 0
+/// ```
 @propertyWrapper
 public struct CastRange<Value: Sendable, Bound: Comparable & Sendable>: Sendable {
     public var wrappedValue: Value
@@ -78,6 +90,11 @@ extension CastRange: Decodable where Value: Decodable, Bound: Decodable {
     }
 }
 
+/// Caps an array field at `maxCount` elements in the schema.
+///
+/// ```swift
+/// @MaxCount(8) var ingredients: [String] = []
+/// ```
 @propertyWrapper
 public struct MaxCount<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -102,6 +119,11 @@ extension MaxCount: Decodable where Value: Decodable {
     }
 }
 
+/// Requires an array field to contain at least `minCount` elements in the schema.
+///
+/// ```swift
+/// @MinCount(1) var tags: [String] = []
+/// ```
 @propertyWrapper
 public struct MinCount<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -126,6 +148,11 @@ extension MinCount: Decodable where Value: Decodable {
     }
 }
 
+/// Restricts a field to one of the listed string values (enum-style) in the schema.
+///
+/// ```swift
+/// @OneOf(["low", "medium", "high"]) var priority: String = "low"
+/// ```
 @propertyWrapper
 public struct OneOf<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -150,6 +177,11 @@ extension OneOf: Decodable where Value: Decodable {
     }
 }
 
+/// Attaches a human-readable description to a field in the generated schema.
+///
+/// ```swift
+/// @Description("User's full legal name") var name: String = ""
+/// ```
 @propertyWrapper
 public struct Description<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -174,6 +206,11 @@ extension Description: Decodable where Value: Decodable {
     }
 }
 
+/// Provides example values for a field as a hint in the generated schema.
+///
+/// ```swift
+/// @Examples("alice@example.com", "bob@example.com") var email: String = ""
+/// ```
 @propertyWrapper
 public struct Examples<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -198,6 +235,11 @@ extension Examples: Decodable where Value: Decodable {
     }
 }
 
+/// Constrains a `String` field to match a regex pattern in the schema.
+///
+/// ```swift
+/// @Pattern("^[A-Z]{3}$") var currencyCode: String = ""
+/// ```
 @propertyWrapper
 public struct Pattern<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -222,6 +264,11 @@ extension Pattern: Decodable where Value: Decodable {
     }
 }
 
+/// Caps a numeric field to at most `precision` decimal places in the schema.
+///
+/// ```swift
+/// @Precision(2) var price: Double = 0
+/// ```
 @propertyWrapper
 public struct Precision<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -246,6 +293,11 @@ extension Precision: Decodable where Value: Decodable {
     }
 }
 
+/// Requires an array field to have exactly `count` elements in the schema.
+///
+/// ```swift
+/// @Count(3) var rgb: [Int] = []
+/// ```
 @propertyWrapper
 public struct Count<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -270,6 +322,11 @@ extension Count: Decodable where Value: Decodable {
     }
 }
 
+/// Marks a field as accepting JSON `null` in the generated schema.
+///
+/// ```swift
+/// @Nullable var middleName: String? = nil
+/// ```
 @propertyWrapper
 public struct Nullable<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -294,6 +351,11 @@ extension Nullable: Decodable where Value: Decodable {
     }
 }
 
+/// Supplies a default value used when the field is missing from the decoded JSON.
+///
+/// ```swift
+/// @DefaultValue(0) var retries: Int = 0
+/// ```
 @propertyWrapper
 public struct DefaultValue<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -318,6 +380,11 @@ extension DefaultValue: Decodable where Value: Decodable {
     }
 }
 
+/// Applies a post-decode transform to the field's value.
+///
+/// ```swift
+/// @Validator({ $0.lowercased() }) var email: String = ""
+/// ```
 @propertyWrapper
 public struct Validator<Value: Sendable>: Sendable {
     public var wrappedValue: Value
@@ -354,16 +421,18 @@ extension Validator: _ValidatorApplicable {
     }
 }
 
-// Minimal decoder that produces zero values for Bound types in CastRange
+/// Minimal decoder that produces zero values for Bound types in CastRange
 struct _ZeroDecoder: Decoder {
     var codingPath: [CodingKey] = []
     var userInfo: [CodingUserInfoKey: Any] = [:]
-    func container<Key: CodingKey>(keyedBy type: Key.Type) throws -> KeyedDecodingContainer<Key> {
+    func container<Key: CodingKey>(keyedBy _: Key.Type) throws -> KeyedDecodingContainer<Key> {
         throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: ""))
     }
+
     func unkeyedContainer() throws -> UnkeyedDecodingContainer {
         throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: ""))
     }
+
     func singleValueContainer() throws -> SingleValueDecodingContainer {
         _ZeroSingleValueContainer()
     }
@@ -371,20 +440,67 @@ struct _ZeroDecoder: Decoder {
 
 private struct _ZeroSingleValueContainer: SingleValueDecodingContainer {
     var codingPath: [CodingKey] = []
-    func decodeNil() -> Bool { false }
-    func decode(_ type: Bool.Type) throws -> Bool { false }
-    func decode(_ type: String.Type) throws -> String { "" }
-    func decode(_ type: Double.Type) throws -> Double { 0 }
-    func decode(_ type: Float.Type) throws -> Float { 0 }
-    func decode(_ type: Int.Type) throws -> Int { 0 }
-    func decode(_ type: Int8.Type) throws -> Int8 { 0 }
-    func decode(_ type: Int16.Type) throws -> Int16 { 0 }
-    func decode(_ type: Int32.Type) throws -> Int32 { 0 }
-    func decode(_ type: Int64.Type) throws -> Int64 { 0 }
-    func decode(_ type: UInt.Type) throws -> UInt { 0 }
-    func decode(_ type: UInt8.Type) throws -> UInt8 { 0 }
-    func decode(_ type: UInt16.Type) throws -> UInt16 { 0 }
-    func decode(_ type: UInt32.Type) throws -> UInt32 { 0 }
-    func decode(_ type: UInt64.Type) throws -> UInt64 { 0 }
-    func decode<T: Decodable>(_ type: T.Type) throws -> T { try T(from: _ZeroDecoder()) }
+    func decodeNil() -> Bool {
+        false
+    }
+
+    func decode(_: Bool.Type) throws -> Bool {
+        false
+    }
+
+    func decode(_: String.Type) throws -> String {
+        ""
+    }
+
+    func decode(_: Double.Type) throws -> Double {
+        0
+    }
+
+    func decode(_: Float.Type) throws -> Float {
+        0
+    }
+
+    func decode(_: Int.Type) throws -> Int {
+        0
+    }
+
+    func decode(_: Int8.Type) throws -> Int8 {
+        0
+    }
+
+    func decode(_: Int16.Type) throws -> Int16 {
+        0
+    }
+
+    func decode(_: Int32.Type) throws -> Int32 {
+        0
+    }
+
+    func decode(_: Int64.Type) throws -> Int64 {
+        0
+    }
+
+    func decode(_: UInt.Type) throws -> UInt {
+        0
+    }
+
+    func decode(_: UInt8.Type) throws -> UInt8 {
+        0
+    }
+
+    func decode(_: UInt16.Type) throws -> UInt16 {
+        0
+    }
+
+    func decode(_: UInt32.Type) throws -> UInt32 {
+        0
+    }
+
+    func decode(_: UInt64.Type) throws -> UInt64 {
+        0
+    }
+
+    func decode<T: Decodable>(_: T.Type) throws -> T {
+        try T(from: _ZeroDecoder())
+    }
 }

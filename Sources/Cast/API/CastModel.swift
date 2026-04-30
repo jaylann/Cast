@@ -4,19 +4,34 @@ import os
 
 @preconcurrency import MLXLLM
 
+/// A loaded MLX language model, ready to produce structured output via
+/// ``cast(_:as:system:config:didGenerate:)-2yyul`` and friends.
+///
+/// `CastModel` is `Sendable`. Construct one with ``load(_:progress:)`` (Cast
+/// owns the model lifetime) or ``init(wrapping:configuration:)`` (you own
+/// it). One model can be used concurrently from multiple Tasks; each
+/// generation call is independently cancellable.
 public final class CastModel: Sendable {
     private let _container: OSAllocatedUnfairLock<ModelContainer?>
     let _configuration: OSAllocatedUnfairLock<ModelConfiguration?>
     let grammarCache = GrammarProcessorCache()
 
+    /// Registry of in-flight generation cancel closures, keyed by UUID.
+    /// Populated by ``cast`` / ``castJSON`` for the duration of each call so
+    /// ``abortInFlight()`` and the iOS background hook can cancel them.
+    let _inFlight = OSAllocatedUnfairLock<[UUID: @Sendable () -> Void]>(initialState: [:])
+
+    /// The wrapped MLX model container, or `nil` after ``unload()``.
     public var container: ModelContainer? {
         _container.withLock { $0 }
     }
 
+    /// The MLX model configuration, or `nil` if the model isn't loaded.
     public var configuration: ModelConfiguration? {
         _configuration.withLock { $0 }
     }
 
+    /// `true` while the model is loaded and ready to serve generation calls.
     public var isLoaded: Bool {
         container != nil
     }
@@ -32,13 +47,24 @@ public final class CastModel: Sendable {
         _configuration = OSAllocatedUnfairLock(initialState: nil)
     }
 
-    /// Creates a CastModel wrapping an existing loaded ModelContainer.
-    /// Use when the caller manages model loading independently.
+    /// Wrap an already-loaded `ModelContainer`. Use this when the caller
+    /// manages model lifetime (sharing one container across components,
+    /// loading from a custom path, etc.).
     public init(wrapping container: ModelContainer, configuration: ModelConfiguration) {
         _container = OSAllocatedUnfairLock(initialState: container)
         _configuration = OSAllocatedUnfairLock(initialState: configuration)
     }
 
+    /// Download (if needed) and load an MLX model by its Hugging Face id.
+    ///
+    /// ```swift
+    /// let model = try await CastModel.load("mlx-community/Llama-3.2-3B-Instruct-4bit")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - modelId: A Hugging Face `org/repo` identifier (typically under
+    ///     `mlx-community/`).
+    ///   - progress: Optional download/load progress callback.
     public static func load(
         _ modelId: String,
         progress: (@Sendable (Progress) -> Void)? = nil
@@ -52,10 +78,19 @@ public final class CastModel: Sendable {
         return CastModel(container: container, configuration: configuration)
     }
 
+    /// Release the underlying container. Subsequent generation calls throw
+    /// ``CastError/modelNotLoaded``.
     public func unload() {
         _container.withLock { $0 = nil }
     }
 
+    /// Pay the one-time grammar-compilation cost for each `(model, type)`
+    /// pair up front. After warm-up, the first real `cast()` call is
+    /// noticeably faster.
+    ///
+    /// ```swift
+    /// try await model.prepare(Recipe.self, Sentiment.self)
+    /// ```
     public func prepare(_ types: (any (Decodable & Sendable).Type)...) async throws {
         guard let configuration else {
             throw CastError.modelNotLoaded
