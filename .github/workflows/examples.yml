@@ -2,13 +2,13 @@ name: Examples
 
 on:
   push:
-    branches: [main]
+    branches: [stage]
     paths:
       - 'Sources/Cast/**'
       - 'Examples/**'
       - '.github/workflows/examples.yml'
   pull_request:
-    branches: [main]
+    branches: [stage]
     paths:
       - 'Sources/Cast/**'
       - 'Examples/**'

@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version to release (e.g. 0.1.0). The "v" prefix is added automatically.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout stage
+        uses: actions/checkout@v4
+        with:
+          ref: stage
+          fetch-depth: 0
+
+      - name: Validate version is semver
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version '$VERSION' is not valid semver (X.Y.Z[-pre][+build])"
+            exit 1
+          fi
+          echo "Version $VERSION is valid semver."
+
+      - name: Verify tag does not already exist
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git fetch --tags
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists. Pick a new version."
+            exit 1
+          fi
+          echo "Tag v$VERSION is available."
+
+      - name: Verify latest stage CI run is green
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST=$(gh run list --workflow=test.yml --branch=stage --limit=1 --json status,conclusion,headSha -q '.[0]')
+          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
+            echo "::error::No test.yml runs found for stage. Push to stage first."
+            exit 1
+          fi
+          STATUS=$(echo "$LATEST" | jq -r '.status')
+          CONCLUSION=$(echo "$LATEST" | jq -r '.conclusion')
+          HEAD_SHA=$(echo "$LATEST" | jq -r '.headSha')
+          STAGE_SHA=$(git rev-parse origin/stage)
+          echo "Latest run: status=$STATUS conclusion=$CONCLUSION sha=$HEAD_SHA (stage HEAD=$STAGE_SHA)"
+          if [ "$STATUS" != "completed" ] || [ "$CONCLUSION" != "success" ]; then
+            echo "::error::Latest test.yml run on stage is not a successful completion. Fix CI before releasing."
+            exit 1
+          fi
+          if [ "$HEAD_SHA" != "$STAGE_SHA" ]; then
+            echo "::warning::Latest CI run was for $HEAD_SHA but stage HEAD is $STAGE_SHA. Push a fresh build to stage and wait for CI before releasing."
+            exit 1
+          fi
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fast-forward main to stage
+        run: |
+          # Push stage's HEAD to main. Server rejects if not fast-forward,
+          # which enforces stage-only releases.
+          git push origin stage:main
+
+      - name: Create and push tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --target main \
+            --generate-notes
