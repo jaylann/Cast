@@ -1,18 +1,18 @@
-import Testing
 @testable import Cast
+import Testing
 
-@Test func testErrorHandlerSetupIsIdempotent() {
+@Test func errorHandlerSetupIsIdempotent() {
     CastModel.ensureErrorHandler()
     CastModel.ensureErrorHandler()
 }
 
-@Test func testCheckAndClearReturnsNilWhenNoError() {
+@Test func checkAndClearReturnsNilWhenNoError() {
     CastModel.ensureErrorHandler()
     let error = CastModel.checkAndClearMLXGlobalError()
     #expect(error == nil)
 }
 
-@Test func testCheckAndClearIsAtomic() {
+@Test func checkAndClearIsAtomic() {
     CastModel.ensureErrorHandler()
     // First read clears any stale state
     _ = CastModel.checkAndClearMLXGlobalError()
@@ -21,7 +21,7 @@ import Testing
     #expect(error == nil)
 }
 
-@Test func testCleanupGPUDoesNotCrash() {
+@Test(.requiresMetal) func cleanupGPUDoesNotCrash() {
     let model = CastModel()
     // cleanupGPU on an unloaded model should not crash (try? swallows errors)
     model.cleanupGPU()

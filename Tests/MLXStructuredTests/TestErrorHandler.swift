@@ -5,89 +5,89 @@
 //  Created by Ivan Petrukha on 18.09.2025.
 //
 
-import Testing
 @testable import MLXStructured
+import Testing
 
-@Test func testEmptyEBNFGrammar() async throws {
+@Test(.requiresMetal) func emptyEBNFGrammar() {
     #expect(performing: {
         let grammar = Grammar.ebnf("")
-        let _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
+        _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
     }, throws: { error in
         switch error {
         case XGrammarError.emptyGrammar:
-            return true
+            true
         default:
-            return false
+            false
         }
     })
 }
 
-@Test func testIncorrectEBNFGrammar() async throws {
+@Test(.requiresMetal) func incorrectEBNFGrammar() {
     #expect(performing: {
         let grammar = Grammar.ebnf("*")
-        let _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
+        _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
     }, throws: { error in
         switch error {
-        case XGrammarError.invalidGrammar(let message):
-            return message.contains("The root rule with name \"root\" is not found")
+        case let XGrammarError.invalidGrammar(message):
+            message.contains("The root rule with name \"root\" is not found")
         default:
-            return false
+            false
         }
     })
 }
 
-@Test func testEmptyRegexGrammar() async throws {
+@Test(.requiresMetal) func emptyRegexGrammar() {
     #expect(performing: {
         let grammar = Grammar.regex("")
-        let _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
+        _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
     }, throws: { error in
         switch error {
         case XGrammarError.emptyGrammar:
-            return true
+            true
         default:
-            return false
+            false
         }
     })
 }
 
-@Test func testIncorrectRegexGrammar() async throws {
+@Test(.requiresMetal) func incorrectRegexGrammar() {
     #expect(performing: {
         let grammar = Grammar.regex("*")
-        let _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
+        _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
     }, throws: { error in
         switch error {
-        case XGrammarError.invalidGrammar(let message):
-            return message.contains("Expect element, but got *")
+        case let XGrammarError.invalidGrammar(message):
+            message.contains("Expect element, but got *")
         default:
-            return false
+            false
         }
     })
 }
 
-@Test func testEmptyJSONSchemaGrammar() async throws {
+@Test(.requiresMetal) func emptyJSONSchemaGrammar() {
     #expect(performing: {
         let grammar = Grammar.schema("")
-        let _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
+        _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
     }, throws: { error in
         switch error {
         case XGrammarError.emptyGrammar:
-            return true
+            true
         default:
-            return false
+            false
         }
     })
 }
 
-@Test func testIncorrectJSONSchemaGrammar() async throws {
+@Test(.requiresMetal) func incorrectJSONSchemaGrammar() {
     #expect(performing: {
         let grammar = Grammar.schema(#"{"type": "foo"}"#)
-        let _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
+        _ = try XGrammar(vocab: ["a", "b", "c"], grammar: grammar)
     }, throws: { error in
         switch error {
-        case XGrammarError.invalidGrammar(let message):
-            return message.contains("Unsupported type \"foo\"")
+        case let XGrammarError.invalidGrammar(message):
+            message.contains("Unsupported type \"foo\"")
         default:
-            return false
+            false
         }
     })
 }
