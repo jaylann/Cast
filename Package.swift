@@ -56,7 +56,8 @@ let package = Package(
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "JSONSchema", package: "swift-json-schema")
-            ]
+            ],
+            exclude: ["LICENSE"]
         ),
         .macro(
             name: "CastMacros",
