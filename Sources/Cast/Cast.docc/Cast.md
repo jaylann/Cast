@@ -53,6 +53,7 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 - <doc:ErrorHandling>
 - <doc:ChatTemplates>
 - <doc:Smoketest>
+- <doc:CastBench>
 
 ### Essentials
 
@@ -81,3 +82,10 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 ### Enums in Schemas
 
 - ``CastEnum``
+
+### Benchmarking
+
+- ``CastBench``
+- ``BenchmarkResult``
+- ``BenchmarkComparison``
+- ``OutputFormat``

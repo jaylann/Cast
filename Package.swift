@@ -81,7 +81,11 @@ let package = Package(
         ),
         .testTarget(
             name: "CastTests",
-            dependencies: ["Cast"]
+            dependencies: [
+                "Cast",
+                .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "Collections", package: "swift-collections")
+            ]
         ),
         .testTarget(
             name: "CastMacroTests",
