@@ -4,14 +4,14 @@ import MLX
 @preconcurrency import MLXLMCommon
 @preconcurrency import MLXStructured
 
-extension CastModel {
-
+public extension CastModel {
     /// Cast with auto-generated schema from a Decodable & Sendable type.
-    public func cast<T: Decodable & Sendable>(
+    func cast<T: Decodable & Sendable>(
         _ prompt: String,
         as type: T.Type = T.self,
         system: String? = nil,
-        config: CastConfiguration = CastConfiguration()
+        config: CastConfiguration = CastConfiguration(),
+        didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> T {
         let schema: JSONSchema
         do {
@@ -28,15 +28,23 @@ extension CastModel {
             system: system
         )
 
-        return try await cast(built.user, as: type, schema: schema, system: built.system, config: config)
+        return try await cast(
+            built.user,
+            as: type,
+            schema: schema,
+            system: built.system,
+            config: config,
+            didGenerate: didGenerate
+        )
     }
 
     /// Return raw JSON string with auto-generated schema.
-    public func castJSON<T: Decodable & Sendable>(
+    func castJSON(
         _ prompt: String,
-        schema type: T.Type,
+        schema type: (some Decodable & Sendable).Type,
         system: String? = nil,
-        config: CastConfiguration = CastConfiguration()
+        config: CastConfiguration = CastConfiguration(),
+        didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> String {
         let schema: JSONSchema
         do {
@@ -53,15 +61,22 @@ extension CastModel {
             system: system
         )
 
-        return try await castJSON(built.user, schema: schema, system: built.system, config: config)
+        return try await castJSON(
+            built.user,
+            schema: schema,
+            system: built.system,
+            config: config,
+            didGenerate: didGenerate
+        )
     }
 
     /// Return raw JSON string with explicit schema.
-    public func castJSON(
+    func castJSON(
         _ prompt: String,
         schema: JSONSchema,
         system: String? = nil,
-        config: CastConfiguration = CastConfiguration()
+        config: CastConfiguration = CastConfiguration(),
+        didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> String {
         Self.ensureErrorHandler()
 
@@ -76,11 +91,10 @@ extension CastModel {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let fullPrompt: String
-        if let system {
-            fullPrompt = "\(system)\n\n\(prompt)"
+        let fullPrompt: String = if let system {
+            "\(system)\n\n\(prompt)"
         } else {
-            fullPrompt = prompt
+            prompt
         }
 
         let parameters = config.generateParameters
@@ -96,8 +110,11 @@ extension CastModel {
                     parameters: parameters,
                     context: context,
                     grammar: grammar,
-                    didGenerate: { _ in
-                        Task.isCancelled ? .stop : .more
+                    didGenerate: { tokens in
+                        if let didGenerate, didGenerate(tokens.count) == .stop {
+                            return .stop
+                        }
+                        return Task.isCancelled ? .stop : .more
                     }
                 )
             }
@@ -119,12 +136,13 @@ extension CastModel {
     }
 
     /// Cast with explicit JSONSchema parameter.
-    public func cast<T: Decodable>(
+    func cast<T: Decodable>(
         _ prompt: String,
-        as type: T.Type = T.self,
+        as _: T.Type = T.self,
         schema: JSONSchema,
         system: String? = nil,
-        config: CastConfiguration = CastConfiguration()
+        config: CastConfiguration = CastConfiguration(),
+        didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> T {
         Self.ensureErrorHandler()
 
@@ -139,11 +157,10 @@ extension CastModel {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let fullPrompt: String
-        if let system {
-            fullPrompt = "\(system)\n\n\(prompt)"
+        let fullPrompt: String = if let system {
+            "\(system)\n\n\(prompt)"
         } else {
-            fullPrompt = prompt
+            prompt
         }
 
         let parameters = config.generateParameters
@@ -159,8 +176,11 @@ extension CastModel {
                     parameters: parameters,
                     context: context,
                     grammar: grammar,
-                    didGenerate: { _ in
-                        Task.isCancelled ? .stop : .more
+                    didGenerate: { tokens in
+                        if let didGenerate, didGenerate(tokens.count) == .stop {
+                            return .stop
+                        }
+                        return Task.isCancelled ? .stop : .more
                     }
                 )
             }
@@ -189,14 +209,15 @@ extension CastModel {
     }
 
     /// Classify input into a CastEnum value (String raw value).
-    public func classify<T: CastEnum>(
+    func classify<T: CastEnum>(
         _ prompt: String,
         as type: T.Type = T.self,
         system: String? = nil,
-        config: CastConfiguration? = nil
+        config: CastConfiguration? = nil,
+        didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> T where T.RawValue == String {
         let schema = T.castSchema
-        let values = T.allCases.map { $0.rawValue }
+        let values = T.allCases.map(\.rawValue)
 
         let built = PromptEngine.buildClassificationPrompt(
             userPrompt: prompt,
@@ -208,15 +229,19 @@ extension CastModel {
         classifyConfig.maxTokens = min(classifyConfig.maxTokens, 10)
         classifyConfig.temperature = 0.0
 
-        return try await cast(built.user, as: type, schema: schema, system: built.system, config: classifyConfig)
+        return try await cast(
+            built.user, as: type, schema: schema, system: built.system,
+            config: classifyConfig, didGenerate: didGenerate
+        )
     }
 
     /// Classify input into a CastEnum value (Int raw value).
-    public func classify<T: CastEnum>(
+    func classify<T: CastEnum>(
         _ prompt: String,
         as type: T.Type = T.self,
         system: String? = nil,
-        config: CastConfiguration? = nil
+        config: CastConfiguration? = nil,
+        didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> T where T.RawValue == Int {
         let schema = T.castSchema
         let values = T.allCases.map { String($0.rawValue) }
@@ -231,6 +256,9 @@ extension CastModel {
         classifyConfig.maxTokens = min(classifyConfig.maxTokens, 10)
         classifyConfig.temperature = 0.0
 
-        return try await cast(built.user, as: type, schema: schema, system: built.system, config: classifyConfig)
+        return try await cast(
+            built.user, as: type, schema: schema, system: built.system,
+            config: classifyConfig, didGenerate: didGenerate
+        )
     }
 }
