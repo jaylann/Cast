@@ -18,7 +18,7 @@ let package = Package(
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.0"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema.git", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.1"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0")
     ],
     targets: [
