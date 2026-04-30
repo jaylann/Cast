@@ -1,11 +1,10 @@
-import Testing
-import JSONSchema
 @testable import Cast
+import JSONSchema
+import Testing
 
 @Suite("PromptEngine")
 struct PromptEngineTests {
-
-    @Test func defaultSystemIncludesSchema() throws {
+    @Test func defaultSystemIncludesSchema() {
         let schema = JSONSchema.object(
             properties: ["name": .string(), "age": .integer()],
             required: ["name", "age"]
@@ -60,5 +59,78 @@ struct PromptEngineTests {
         let schema = JSONSchema.object()
         let result = PromptEngine.buildPrompt(userPrompt: "test", schema: schema)
         #expect(result.system.contains("valid JSON"))
+    }
+
+    @Test func extractionPromptWrapsTextInDelimiters() {
+        let schema = JSONSchema.object()
+        let source = "Invoice #4242 — total due $19.99"
+        let result = PromptEngine.buildExtractionPrompt(
+            text: source,
+            instruction: "Extract the invoice number and total.",
+            schema: schema
+        )
+
+        #expect(result.user.contains("---SOURCE---"))
+        #expect(result.user.contains("---END SOURCE---"))
+        #expect(result.user.contains(source))
+
+        guard
+            let startRange = result.user.range(of: "---SOURCE---"),
+            let endRange = result.user.range(of: "---END SOURCE---"),
+            let sourceRange = result.user.range(of: source)
+        else {
+            Issue.record("Expected delimiters and source text in user prompt")
+            return
+        }
+        #expect(startRange.upperBound <= sourceRange.lowerBound)
+        #expect(sourceRange.upperBound <= endRange.lowerBound)
+    }
+
+    @Test func extractionPromptIncludesInstruction() {
+        let schema = JSONSchema.object()
+        let instruction = "Extract the invoice number and total in USD."
+        let result = PromptEngine.buildExtractionPrompt(
+            text: "irrelevant",
+            instruction: instruction,
+            schema: schema
+        )
+        #expect(result.user.contains(instruction))
+    }
+
+    @Test func extractionPromptDiscouragesInvention() {
+        let schema = JSONSchema.object()
+        let result = PromptEngine.buildExtractionPrompt(
+            text: "irrelevant",
+            instruction: "Extract.",
+            schema: schema
+        )
+        #expect(result.system.lowercased().contains("do not invent"))
+        #expect(result.system.contains("null"))
+    }
+
+    @Test func extractionPromptIncludesSchema() {
+        let schema = JSONSchema.object(
+            properties: ["invoiceNumber": .string(), "totalUSD": .number()],
+            required: ["invoiceNumber", "totalUSD"]
+        )
+        let result = PromptEngine.buildExtractionPrompt(
+            text: "irrelevant",
+            instruction: "Extract.",
+            schema: schema
+        )
+        #expect(result.system.contains("JSON Schema"))
+        #expect(result.system.contains("invoiceNumber"))
+        #expect(result.system.contains("totalUSD"))
+    }
+
+    @Test func extractionPromptCustomSystemOverride() {
+        let schema = JSONSchema.object()
+        let result = PromptEngine.buildExtractionPrompt(
+            text: "irrelevant",
+            instruction: "Extract.",
+            schema: schema,
+            system: "Custom extraction system."
+        )
+        #expect(result.system == "Custom extraction system.")
     }
 }
