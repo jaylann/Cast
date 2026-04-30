@@ -109,7 +109,7 @@ public enum PromptEngine {
         parts.append("You are a structured data extraction assistant.")
         parts
             .append(
-                "Extract the requested fields from the source. If a field is not present, use null. Do not invent information."
+                "Extract the requested fields from the source. If a field is not present in the source, omit it from the output (or use null only if the schema permits null for that field). Do not invent information."
             )
         parts.append("Respond ONLY with valid JSON matching the following schema.")
         parts.append("")
