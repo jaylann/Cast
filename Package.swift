@@ -14,7 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.2"),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", from: "2.30.0"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", from: "3.31.3"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.1.0"),
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema.git", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
