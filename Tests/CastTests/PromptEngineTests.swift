@@ -70,20 +70,38 @@ struct PromptEngineTests {
             schema: schema
         )
 
-        #expect(result.user.contains("---SOURCE---"))
-        #expect(result.user.contains("---END SOURCE---"))
-        #expect(result.user.contains(source))
+        // Per-call nonce: assert structural shape rather than literal text.
+        let openPattern = #/<<<SOURCE ([0-9a-f]{8})>>>/#
+        let closePattern = #/<<<END SOURCE ([0-9a-f]{8})>>>/#
 
         guard
-            let startRange = result.user.range(of: "---SOURCE---"),
-            let endRange = result.user.range(of: "---END SOURCE---"),
+            let openMatch = result.user.firstMatch(of: openPattern),
+            let closeMatch = result.user.firstMatch(of: closePattern),
             let sourceRange = result.user.range(of: source)
         else {
-            Issue.record("Expected delimiters and source text in user prompt")
+            Issue.record("Expected nonced delimiters and source text in user prompt")
             return
         }
-        #expect(startRange.upperBound <= sourceRange.lowerBound)
-        #expect(sourceRange.upperBound <= endRange.lowerBound)
+        // Same nonce on both fences so the model can pair them.
+        #expect(openMatch.output.1 == closeMatch.output.1)
+        #expect(openMatch.range.upperBound <= sourceRange.lowerBound)
+        #expect(sourceRange.upperBound <= closeMatch.range.lowerBound)
+    }
+
+    @Test func extractionDelimiterNonceIsPerCall() {
+        let schema = JSONSchema.object()
+        let pattern = #/<<<SOURCE ([0-9a-f]{8})>>>/#
+        let first = PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
+        let second = PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
+
+        guard
+            let firstNonce = first.user.firstMatch(of: pattern)?.output.1,
+            let secondNonce = second.user.firstMatch(of: pattern)?.output.1
+        else {
+            Issue.record("Expected nonced delimiters in both prompts")
+            return
+        }
+        #expect(firstNonce != secondNonce)
     }
 
     @Test func extractionPromptIncludesInstruction() {

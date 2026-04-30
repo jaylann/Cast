@@ -23,7 +23,9 @@ public extension CastModel {
     ///   - system: Optional override for the auto-built system message.
     ///   - config: Sampling, timeout, and JSON-repair knobs.
     ///   - didGenerate: Optional per-token hook returning `.stop` to end early.
-    /// - Throws: Same errors as ``cast(_:as:system:config:didGenerate:)``.
+    /// - Throws: Same errors as ``cast(_:as:schema:system:config:didGenerate:)``
+    ///   plus ``CastError/schemaGenerationFailed(_:)`` if the schema cannot
+    ///   be derived from `T`.
     func extract<T: Decodable & Sendable>(
         from text: String,
         as type: T.Type = T.self,

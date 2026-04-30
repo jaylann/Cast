@@ -145,14 +145,25 @@ public enum PromptEngine {
     }
 
     private static func buildExtractionUser(text: String, instruction: String) -> String {
-        // Delimiters separate untrusted source text from the extraction
-        // instruction, mitigating prompt-injection from the source body.
+        // A per-call random nonce is suffixed to both fences so the source
+        // body cannot end the block by including the literal delimiter — a
+        // trivial prompt-injection vector when delimiters are fixed strings
+        // like `---END SOURCE---` (which is also a valid markdown HR).
+        let nonce = extractionNonce()
         var parts: [String] = []
         parts.append(instruction)
         parts.append("")
-        parts.append("---SOURCE---")
+        parts.append("<<<SOURCE \(nonce)>>>")
         parts.append(text)
-        parts.append("---END SOURCE---")
+        parts.append("<<<END SOURCE \(nonce)>>>")
         return parts.joined(separator: "\n")
+    }
+
+    /// 8 lowercase hex characters from a fresh UUID — short enough to keep
+    /// the prompt readable, long enough (~32 bits) that collision with the
+    /// source body is not a practical concern.
+    private static func extractionNonce() -> String {
+        let uuid = UUID().uuidString
+        return String(uuid.replacingOccurrences(of: "-", with: "").prefix(8)).lowercased()
     }
 }

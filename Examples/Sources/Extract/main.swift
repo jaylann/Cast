@@ -5,11 +5,13 @@ import Collections
 import Foundation
 import JSONSchema
 
+/// Optional fields demonstrate the no-invention contract: a missing
+/// value in the source can decode to `nil` rather than being hallucinated.
 @Castable
 struct InvoiceFields {
-    var invoiceNumber: String = ""
-    var vendor: String = ""
-    var totalUSD: Double = 0
+    var invoiceNumber: String?
+    var vendor: String?
+    var totalUSD: Double?
 }
 
 @main
@@ -33,6 +35,3 @@ enum Extract {
         print(fields)
     }
 }
-
-// Sample output (manual run, will vary by model):
-// InvoiceFields(invoiceNumber: "INV-7421", vendor: "ACME Corp.", totalUSD: 1250.0)
