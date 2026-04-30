@@ -254,12 +254,27 @@ private func yieldTerminal<T: Castable>(
         decodeInput = buffer
     }
 
+    // The terminal yield must guarantee a fully-decoded value, matching
+    // `cast()` semantics. `T.PartiallyGenerated` is all-Optional, so it
+    // would silently accept a buffer with missing required fields (e.g. a
+    // generation that hit `maxTokens` mid-object). Decode `T.self` first to
+    // enforce the schema's required-field contract; only then project to
+    // `PartiallyGenerated` for the consumer-facing type.
+    let data = Data(decodeInput.utf8)
+    let decoder = JSONDecoder()
+
+    do {
+        _ = try decoder.decode(T.self, from: data)
+    } catch {
+        throw CastError.decodingFailed(
+            rawOutput: decodeInput,
+            error: error.localizedDescription
+        )
+    }
+
     let value: T.PartiallyGenerated
     do {
-        value = try JSONDecoder().decode(
-            T.PartiallyGenerated.self,
-            from: Data(decodeInput.utf8)
-        )
+        value = try decoder.decode(T.PartiallyGenerated.self, from: data)
     } catch {
         throw CastError.decodingFailed(
             rawOutput: decodeInput,

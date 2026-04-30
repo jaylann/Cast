@@ -264,4 +264,43 @@ struct PartiallyGeneratedExpansionTests {
             macros: testMacros
         )
     }
+
+    @Test("array of optional primitive unwraps element type")
+    func arrayOfOptionalPrimitive() {
+        // `[String?]` must not double-wrap into `[String??]` or
+        // `[String?.PartiallyGenerated]?` — the element's trailing `?`
+        // is dropped before the partial-projection lookup.
+        assertMacroExpansion(
+            """
+            @Castable
+            struct Foo {
+                var tags: [String?] = []
+            }
+            """,
+            expandedSource: """
+            struct Foo {
+                var tags: [String?] = []
+
+                static let castSchema: JSONSchema = .object(
+                    properties: OrderedDictionary(dictionaryLiteral:
+                        ("tags", .array(items: .string()))
+                    ),
+                    required: ["tags"],
+                    additionalProperties: .boolean(false)
+                )
+
+                init() {
+                }
+
+                struct PartiallyGenerated: Sendable, Decodable {
+                    var tags: [String]?
+                }
+            }
+
+            extension Foo: Castable, Decodable {
+            }
+            """,
+            macros: testMacros
+        )
+    }
 }
