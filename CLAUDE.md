@@ -21,6 +21,7 @@ Detailed rules live in `.claude/rules/`. Key principles:
 - **Parallel Work**: Consider subagents/teams for non-trivial tasks. See `parallel-work.md`.
 - **Apple APIs**: Always verify with AppleDocs + web search before using. See `apple-api-verification.md`.
 - **Macros**: SwiftSyntax patterns, testing macros. See `macro-development.md`.
+- **Release**: Staged workflow — PRs target `stage`, `main` is release-only, semver tags via `release.yml`. See `release-workflow.md`.
 - **ADRs**: Write `docs/decisions/NNNN-*.md` for complex decisions before committing. See `documentation.md`.
 
 ## Pre-Commit Workflow
@@ -107,3 +108,10 @@ docs/
 - `@Castable` consumers need `import Cast` **plus** `import Collections` and `import JSONSchema` — the macro expansion references `JSONSchema` and `OrderedDictionary` directly and the library does not `@_exported`-re-export them.
 - Runnable examples live in `Examples/` (own `Package.swift`, `.package(path: "..")`); each is `Examples/Sources/<Name>/main.swift`, registered as an `executableTarget`. CI is `.github/workflows/examples.yml` — `swift build` only, no auto-run.
 - DocC site lives at `Sources/Cast/Cast.docc/`. Each `Examples/Sources/<Name>/main.swift` is mirrored to a `Cast.docc/Examples/<Name>.md` article via `scripts/generate-example-docs.sh`; CI (`.github/workflows/docs.yml`) regenerates before building, so committed articles can drift but the published site never does. When adding a new example, also add a `<doc:Name>` entry under `## Topics > Examples` in `Cast.docc/Cast.md`.
+- Default branch is `stage`, not `main`. PRs target `stage`. `main` is release-only and updated exclusively by `.github/workflows/release.yml` (workflow_dispatch, semver input, fast-forwards `stage`→`main`, tags `vX.Y.Z`, creates GitHub Release). See `.claude/rules/release-workflow.md`.
+- License is **Apache-2.0 unified** across the package. `LICENSE` (root) + `NOTICE` credits the two vendored upstreams (`petrukha-ivan/mlx-swift-structured` → `Sources/MLXStructured/`, `mlc-ai/xgrammar` submodule → `Sources/CMLXStructured/xgrammar/`). Both upstreams are also Apache-2.0; their LICENSE is preserved in-tree. Don't relicense; don't add GPL/LGPL/AGPL vendored code without explicit decision.
+- `Sources/MLXStructured/LICENSE` must be in the `MLXStructured` target's `exclude:` list in `Package.swift` — SPM otherwise emits an "unhandled file" warning.
+- CI (`macos-15`) cannot run MLX runtime tests — `swift test` exits with `MLX error: Failed to load the default metallib`. Tests that invoke MLX use the `.requiresMetal` Swift Testing trait (in `Tests/CastTests/TestHelpers.swift` and `Tests/MLXStructuredTests/TestHelpers.swift`) which skips when `CI=true`. Macro/schema/property-wrapper/validator/prompt-engine/JSON-repair tests do NOT need this gate. See issue #75.
+- `scripts/pre-public-check.sh` is the safety scanner used before any visibility change, history rewrite, or accepting CI-touching contributions. Exit `0` = safe; `1` = findings.
+- Repo is **public** at `https://github.com/jaylann/Cast`. Standard `macos-15` runners are free with no minute cap on public repos. Never switch workflows to `macos-15-large` / `-xlarge` — those "larger runners" are billed even on public repos.
+- `.claude/` is gitignored (line 41 of `.gitignore`). Files under `.claude/rules/`, `.claude/hooks/`, and `.claude/settings.json` are local-only per-developer config — they don't ship with the repo. CLAUDE.md at the root IS tracked.
