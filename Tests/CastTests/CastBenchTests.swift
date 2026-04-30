@@ -191,6 +191,43 @@ import Testing
     }
 }
 
+// MARK: - validRate (synthetic regression for unconstrainedValidRate)
+
+@Test func validRateAllDecodedReturnsOne() {
+    let samples = (0 ..< 5).map { _ in
+        BenchmarkInstrumentation.IterationSample(
+            latency: .milliseconds(10), tokenCount: 1, output: "{}", decoded: true
+        )
+    }
+    #expect(BenchmarkInstrumentation.validRate(of: samples) == 1.0)
+}
+
+@Test func validRateNoneDecodedReturnsZero() {
+    // Regression: prior code computed `decoded != nil` against a `Bool`,
+    // which the compiler folds to `true`, so the rate was hard-pinned to
+    // 1.0 even when every iteration failed to parse. This must be 0.0.
+    let samples = (0 ..< 5).map { _ in
+        BenchmarkInstrumentation.IterationSample(
+            latency: .milliseconds(10), tokenCount: 1, output: "not json", decoded: false
+        )
+    }
+    #expect(BenchmarkInstrumentation.validRate(of: samples) == 0.0)
+}
+
+@Test func validRateMixedDecodedReturnsFraction() {
+    let samples: [BenchmarkInstrumentation.IterationSample] = [
+        .init(latency: .milliseconds(10), tokenCount: 1, output: "{}", decoded: true),
+        .init(latency: .milliseconds(10), tokenCount: 1, output: "x", decoded: false),
+        .init(latency: .milliseconds(10), tokenCount: 1, output: "{}", decoded: true),
+        .init(latency: .milliseconds(10), tokenCount: 1, output: "x", decoded: false)
+    ]
+    #expect(BenchmarkInstrumentation.validRate(of: samples) == 0.5)
+}
+
+@Test func validRateEmptySamplesReturnsZero() {
+    #expect(BenchmarkInstrumentation.validRate(of: []) == 0.0)
+}
+
 private struct SyntheticBenchPayload: Codable, Sendable {
     var label: String
     var score: Int

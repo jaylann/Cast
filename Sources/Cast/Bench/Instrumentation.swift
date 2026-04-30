@@ -153,6 +153,19 @@ enum BenchmarkInstrumentation {
             return false
         }
     }
+
+    /// Fraction of `samples` whose `decoded` flag is `true`.
+    ///
+    /// Used by ``CastBench/compare(type:prompt:iterations:config:)`` to
+    /// compute ``BenchmarkComparison/unconstrainedValidRate``. Returns `0`
+    /// for an empty input — there's nothing to be valid against.
+    static func validRate(of samples: [IterationSample]) -> Double {
+        guard !samples.isEmpty else { return 0 }
+        let valid = samples.reduce(into: 0) { count, sample in
+            if sample.decoded { count += 1 }
+        }
+        return Double(valid) / Double(samples.count)
+    }
 }
 
 /// Thread-safe cumulative token counter for `didGenerate` callbacks.

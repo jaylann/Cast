@@ -2,7 +2,7 @@ import Foundation
 
 /// Output format for ``BenchmarkResult/formatted(as:)`` and
 /// ``BenchmarkComparison/formatted(as:)``.
-public enum OutputFormat: Sendable {
+public enum OutputFormat: String, Sendable, Codable {
     /// Fixed-width, human-readable plain-text table.
     case table
     /// GitHub-flavored Markdown table — paste into PR descriptions, READMEs, etc.
@@ -232,9 +232,10 @@ public struct CastBench: Sendable {
 
         var unconstrainedLatencies: [Duration] = []
         var unconstrainedTokens: [Int] = []
-        var validCount = 0
+        var unconstrainedSamples: [BenchmarkInstrumentation.IterationSample] = []
         unconstrainedLatencies.reserveCapacity(iterations)
         unconstrainedTokens.reserveCapacity(iterations)
+        unconstrainedSamples.reserveCapacity(iterations)
 
         for _ in 0 ..< iterations {
             let sample = try await BenchmarkInstrumentation.runUnconstrainedIteration(
@@ -245,9 +246,7 @@ public struct CastBench: Sendable {
             )
             unconstrainedLatencies.append(sample.latency)
             unconstrainedTokens.append(sample.tokenCount)
-            if sample.decoded != nil {
-                validCount += 1
-            }
+            unconstrainedSamples.append(sample)
         }
 
         let constrained = aggregate(
@@ -288,7 +287,7 @@ public struct CastBench: Sendable {
             constrained: constrainedWithOverhead,
             unconstrained: unconstrained,
             overheadPercent: overheadPct,
-            unconstrainedValidRate: Double(validCount) / Double(iterations)
+            unconstrainedValidRate: BenchmarkInstrumentation.validRate(of: unconstrainedSamples)
         )
     }
 

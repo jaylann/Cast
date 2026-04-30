@@ -3,6 +3,11 @@ import Foundation
 /// Pure formatters for ``BenchmarkResult`` and ``BenchmarkComparison``.
 /// Pure: no side effects, no I/O. Deterministic for a given input.
 enum BenchmarkFormatters {
+    /// The constrained side's valid-rate is fixed at 1.0 by construction —
+    /// grammar masking guarantees the raw output parses into `T` (modulo
+    /// ``JSONRepair``, which doesn't run on the benchmark path).
+    private static let constrainedValidRate: Double = 1.0
+
     // MARK: - BenchmarkResult
 
     static func formatTable(_ result: BenchmarkResult) -> String {
@@ -65,10 +70,12 @@ enum BenchmarkFormatters {
             String(format: "+%.2f%%", comparison.overheadPercent),
             "—"
         ))
+        // Constrained valid rate is 100% by construction: grammar masking guarantees
+        // a parseable parse (modulo `JSONRepair`, which doesn't run in this path).
         sectionRows.append((
             "Valid rate",
-            "100%",
-            String(format: "%.1f%%", comparison.unconstrainedValidRate * 100)
+            formatPercent(constrainedValidRate),
+            formatPercent(comparison.unconstrainedValidRate)
         ))
 
         return renderThreeColumnTable(
@@ -95,7 +102,12 @@ enum BenchmarkFormatters {
                 "| Tokens/sec | \(formatRate(comparison.constrained.tokensPerSecond)) | \(formatRate(comparison.unconstrained.tokensPerSecond)) |"
             )
         lines.append("| Overhead | +\(String(format: "%.2f", comparison.overheadPercent))% | — |")
-        lines.append("| Valid rate | 100% | \(String(format: "%.1f", comparison.unconstrainedValidRate * 100))% |")
+        // Constrained valid rate is 100% by construction: grammar masking guarantees
+        // a parseable parse (modulo `JSONRepair`, which doesn't run in this path).
+        lines
+            .append(
+                "| Valid rate | \(formatPercent(constrainedValidRate)) | \(formatPercent(comparison.unconstrainedValidRate)) |"
+            )
         return lines.joined(separator: "\n")
     }
 
@@ -135,6 +147,10 @@ enum BenchmarkFormatters {
 
     private static func formatOverheadMs(_ ms: Double) -> String {
         String(format: "%.3f ms/tok", ms)
+    }
+
+    private static func formatPercent(_ fraction: Double) -> String {
+        String(format: "%.1f%%", fraction * 100)
     }
 
     // MARK: - Table renderers
