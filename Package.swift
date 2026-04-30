@@ -7,10 +7,10 @@ let package = Package(
     name: "Cast",
     platforms: [
         .macOS(.v14),
-        .iOS(.v17),
+        .iOS(.v17)
     ],
     products: [
-        .library(name: "Cast", targets: ["Cast"]),
+        .library(name: "Cast", targets: ["Cast"])
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift.git", from: "0.30.2"),
@@ -19,6 +19,7 @@ let package = Package(
         .package(url: "https://github.com/petrukha-ivan/swift-json-schema.git", from: "2.0.2"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0")
     ],
     targets: [
         .target(
@@ -34,17 +35,17 @@ let package = Package(
                 "xgrammar/3rdparty/dlpack/docs",
                 "xgrammar/3rdparty/dlpack/tests",
                 "xgrammar/3rdparty/picojson",
-                "xgrammar/cpp/nanobind",
+                "xgrammar/cpp/nanobind"
             ],
             cSettings: [
                 .headerSearchPath("xgrammar/include"),
                 .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
-                .headerSearchPath("xgrammar/3rdparty/picojson"),
+                .headerSearchPath("xgrammar/3rdparty/picojson")
             ],
             cxxSettings: [
                 .headerSearchPath("xgrammar/include"),
                 .headerSearchPath("xgrammar/3rdparty/dlpack/include"),
-                .headerSearchPath("xgrammar/3rdparty/picojson"),
+                .headerSearchPath("xgrammar/3rdparty/picojson")
             ]
         ),
         .target(
@@ -53,14 +54,14 @@ let package = Package(
                 .target(name: "CMLXStructured"),
                 .product(name: "MLX", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "JSONSchema", package: "swift-json-schema")
             ]
         ),
         .macro(
             name: "CastMacros",
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
             ]
         ),
         .target(
@@ -73,7 +74,7 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "JSONSchema", package: "swift-json-schema"),
-                .product(name: "Collections", package: "swift-collections"),
+                .product(name: "Collections", package: "swift-collections")
             ]
         ),
         .testTarget(
@@ -84,16 +85,16 @@ let package = Package(
             name: "CastMacroTests",
             dependencies: [
                 "CastMacros",
-                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
             ]
         ),
         .testTarget(
             name: "MLXStructuredTests",
             dependencies: [
                 "MLXStructured",
-                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXLLM", package: "mlx-swift-lm")
             ]
-        ),
+        )
     ],
     cxxLanguageStandard: .gnucxx17
 )
