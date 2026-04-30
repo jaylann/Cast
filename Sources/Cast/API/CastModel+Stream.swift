@@ -26,17 +26,22 @@ public extension CastModel {
     /// ``CastConfiguration/timeout``.
     ///
     /// Buffering uses ``AsyncThrowingStream/Continuation/BufferingPolicy/bufferingNewest(_:)``
-    /// with a small bound: a slow consumer paired with a fast model will see
-    /// the *latest* snapshots, not every intermediate one. Streaming UIs only
-    /// care about the most recent state, so this trades historical fidelity
-    /// for a memory ceiling.
+    /// with bound `1`: a slow consumer paired with a fast model will see only
+    /// the *most recent* snapshot at any time, not every intermediate one.
+    /// Streaming UIs only care about the latest state, so this trades historical
+    /// fidelity for a fixed memory ceiling. The terminal yield is the final
+    /// write before `.finish()` and is therefore never dropped.
     func castStream<T: Castable>(
         _ prompt: String,
         as type: T.Type = T.self,
         system: String? = nil,
         config: CastConfiguration = CastConfiguration()
     ) -> AsyncThrowingStream<PartialResult<T>, Error> {
-        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(8)) { continuation in
+        // `bufferingNewest(1)` caps memory at one in-flight `PartialResult<T>`:
+        // a slow consumer paired with a fast generation drops stale snapshots
+        // instead of unbounded buffering. The terminal yield is the last write
+        // before `.finish()` and is therefore never dropped.
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
                 do {
                     try await runStream(

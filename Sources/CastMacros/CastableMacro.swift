@@ -24,7 +24,11 @@ extension CastableMacro: MemberMacro {
         for (diagnostic, propNode) in diagnostics {
             context.diagnose(Diagnostic(node: propNode, message: diagnostic))
         }
-        guard diagnostics.isEmpty else { return [] }
+        // Warnings (e.g. unknown non-primitive field types) inform the user but
+        // must not block expansion — the synthesized members are still useful
+        // and the warning flags the call-site for follow-up.
+        let hasError = diagnostics.contains { $0.0.severity == .error }
+        guard !hasError else { return [] }
 
         let schemaDecl = generateSchemaDecl(properties: properties)
         let initDecl = generateInitDecl(properties: properties)
@@ -162,6 +166,19 @@ private let floatTypes: Set<String> = ["Double", "Float"]
 private let numericTypes: Set<String> = integerTypes.union(floatTypes)
 private let boolTypes: Set<String> = ["Bool"]
 
+/// Foundation value types developers commonly reach for that are *not*
+/// primitives in Cast's model. They will be projected as
+/// `<TypeName>.PartiallyGenerated?` and break compilation unless the
+/// consumer adds that conformance manually. Warn loudly at the call site.
+private let suspectFoundationTypes: Set<String> = [
+    "Date",
+    "URL",
+    "UUID",
+    "Data",
+    "Decimal",
+    "TimeInterval"
+]
+
 private func validateProperties(_ properties: [PropertyInfo]) -> [(CastableDiagnostic, Syntax)] {
     var diagnostics: [(CastableDiagnostic, Syntax)] = []
 
@@ -222,9 +239,26 @@ private func validateProperties(_ properties: [PropertyInfo]) -> [(CastableDiagn
                 diagnostics.append((.conflictingLengths, node))
             }
         }
+
+        if let warning = unknownTypeWarning(for: prop) {
+            diagnostics.append(warning)
+        }
     }
 
     return diagnostics
+}
+
+/// Emit a warning when the field's declared type is a known-suspect Foundation
+/// value type (`Date`, `URL`, `UUID`, …) so the consumer is told *at the call
+/// site* that the synthesized `PartiallyGenerated` will reference
+/// `<TypeName>.PartiallyGenerated`. We deliberately do *not* warn for every
+/// non-primitive (which would flood the build for legitimate nested `@Castable`
+/// structs we can't see from inside the macro) — only for the Foundation types
+/// users most often try first.
+private func unknownTypeWarning(for prop: PropertyInfo) -> (CastableDiagnostic, Syntax)? {
+    let candidate = prop.isArray ? (prop.arrayElementType ?? "") : prop.typeName
+    guard suspectFoundationTypes.contains(candidate) else { return nil }
+    return (.unknownNonPrimitiveType(typeName: candidate), prop.node)
 }
 
 private func parseRangeBounds(_ args: [String]) -> (lower: Double, upper: Double)? {
