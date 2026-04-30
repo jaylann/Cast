@@ -7,7 +7,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 Cast is a Swift Package that enables type-safe structured output from any local LLM on Apple Silicon via constrained decoding. It uses MLX Swift for inference and Swift macros for compile-time grammar generation. Think `as?` for LLMs.
 
 Repository: `github.com/jaylann/Cast`
-License: MIT
+License: Apache-2.0
 Author: Justin Lanfermann
 
 ## Code Standards
