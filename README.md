@@ -4,6 +4,8 @@ Type-safe structured output from any local LLM on Apple Silicon. `Cast` runs on 
 
 Think `as?` for LLMs.
 
+📚 **[API Documentation](https://jaylann.github.io/Cast/documentation/cast/)** — auto-generated from source via DocC.
+
 > **Status: pre-1.0.** Phases 0–2 (foundation, schema/wrappers, `@Castable` macro, tokenizer caching, `prepare`, `classify`) are shipped. Phase 3 (streaming, per-model chat templates, benchmarks, DocC, example app) is in flight — see [open issues](https://github.com/jaylann/Cast/issues).
 
 ---
