@@ -35,7 +35,8 @@ let package = Package(
                 "xgrammar/3rdparty/dlpack/docs",
                 "xgrammar/3rdparty/dlpack/tests",
                 "xgrammar/3rdparty/picojson",
-                "xgrammar/cpp/nanobind"
+                "xgrammar/cpp/nanobind",
+                "xgrammar/cpp/tvm_ffi"
             ],
             cSettings: [
                 .headerSearchPath("xgrammar/include"),
