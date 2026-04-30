@@ -19,10 +19,11 @@ Each family ships a Jinja `chat_template` in its `tokenizer_config.json`.
 `MLXLMCommon`'s `UserInput` + `processor.prepare(input:)` already runs that
 template against the tokenizer when preparing model input.
 
-Cast's generation entry points (`Sources/Cast/API/CastModel+Generation.swift`,
-lines 118 and 197) compose a flat string of the form `"\(system)\n\n\(prompt)"`
-and hand it to `UserInput(prompt:)`. The downstream `processor.prepare(input:)`
-call then templates the result.
+Cast's two generation entry points in `Sources/Cast/API/CastModel+Generation.swift`
+— `castJSON(_:schema:system:config:didGenerate:)` and
+`cast(_:as:schema:system:config:didGenerate:)` — compose a flat string of the
+form `"\(system)\n\n\(prompt)"` and hand it to `UserInput(prompt:)`. The
+downstream `processor.prepare(input:)` call then templates the result.
 
 ## Decision
 
@@ -64,8 +65,11 @@ manual verification and as an end-user demonstration.
 - Custom system prompts are joined with the user prompt by a single blank line.
   Templates that draw a strong distinction between the system and user roles
   (e.g. Llama's separate `system` header) still work because the templating
-  step sees a single user message and routes it correctly; we do not currently
-  expose a separate `system` channel through `UserInput`.
+  step sees a single user message and routes it correctly. Cast currently
+  flattens system + user into a single string before constructing `UserInput`;
+  `MLXLMCommon.UserInput` does also accept structured `messages:` and `chat:`
+  initializers, so routing system content as a separate role is a viable
+  future change if the blank-line join ever breaks a family.
 - If a future family ships a template that is meaningfully damaged by the
   blank-line join, the fix lives in `CastModel+Generation.swift` (the two
   call sites that build `fullPrompt`), not in any per-family code path.

@@ -27,17 +27,24 @@ enum ChatTemplates {
 
     static func main() async throws {
         let prompt = "Say hello as a JSON object with field 'text'."
+        var failures: [String] = []
 
         for entry in families {
             print("--- \(entry.family) (\(entry.modelId))")
             do {
                 let model = try await CastModel.load(entry.modelId)
+                defer { model.unload() }
                 let greeting: Greeting = try await model.cast(prompt)
                 print("\(entry.family): \(greeting)")
-                model.unload()
             } catch {
                 print("\(entry.family) failed: \(error)")
+                failures.append(entry.family)
             }
+        }
+
+        if !failures.isEmpty {
+            print("Failed families: \(failures.joined(separator: ", "))")
+            exit(1)
         }
     }
 }

@@ -24,9 +24,9 @@ private let chatTemplatePrompt = "Say hello as a JSON object with field 'text'."
 private func runGreeting(family: String, modelId: String) async throws {
     do {
         let model = try await CastModel.load(modelId)
+        defer { model.unload() }
         let result: Greeting = try await model.cast(chatTemplatePrompt)
         #expect(!result.text.isEmpty, "\(family) (\(modelId)) returned empty text field")
-        await model.unload()
     } catch {
         Issue.record(
             "Chat template verification failed for family \(family) (\(modelId)): \(error)"
