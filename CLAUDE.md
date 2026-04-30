@@ -115,3 +115,4 @@ docs/
 - `scripts/pre-public-check.sh` is the safety scanner used before any visibility change, history rewrite, or accepting CI-touching contributions. Exit `0` = safe; `1` = findings.
 - Repo is **public** at `https://github.com/jaylann/Cast`. Standard `macos-15` runners are free with no minute cap on public repos. Never switch workflows to `macos-15-large` / `-xlarge` — those "larger runners" are billed even on public repos.
 - `.claude/` is gitignored (line 41 of `.gitignore`). Files under `.claude/rules/`, `.claude/hooks/`, and `.claude/settings.json` are local-only per-developer config — they don't ship with the repo. CLAUDE.md at the root IS tracked.
+- Chat templates are owned by MLXLMCommon's `processor.prepare(input:)`. Cast hands a flat `"\(system)\n\n\(prompt)"` string. Verified in Qwen-2.5/Llama-3.2/Mistral-v0.3/Phi-3.5/Gemma-2 via `Tests/CastTests/ChatTemplateTests.swift`; ADR `docs/decisions/0001-chat-template-handling.md`.
