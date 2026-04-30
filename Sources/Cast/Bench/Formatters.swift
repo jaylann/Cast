@@ -67,7 +67,7 @@ enum BenchmarkFormatters {
         var sectionRows = rows
         sectionRows.append((
             "Overhead",
-            String(format: "+%.2f%%", comparison.overheadPercent),
+            String(format: "%+.2f%%", comparison.overheadPercent),
             "—"
         ))
         // Constrained valid rate is 100% by construction: grammar masking guarantees
@@ -101,7 +101,7 @@ enum BenchmarkFormatters {
             .append(
                 "| Tokens/sec | \(formatRate(comparison.constrained.tokensPerSecond)) | \(formatRate(comparison.unconstrained.tokensPerSecond)) |"
             )
-        lines.append("| Overhead | +\(String(format: "%.2f", comparison.overheadPercent))% | — |")
+        lines.append("| Overhead | \(String(format: "%+.2f", comparison.overheadPercent))% | — |")
         // Constrained valid rate is 100% by construction: grammar masking guarantees
         // a parseable parse (modulo `JSONRepair`, which doesn't run in this path).
         lines

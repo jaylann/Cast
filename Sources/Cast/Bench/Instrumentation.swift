@@ -1,4 +1,5 @@
 import Foundation
+import JSONSchema
 @preconcurrency import MLXLMCommon
 
 /// Per-iteration instrumentation helpers for ``CastBench``.
@@ -70,8 +71,16 @@ enum BenchmarkInstrumentation {
         }
 
         // Build the same auto-prompt the constrained path would use, so that
-        // overhead numbers compare apples to apples.
-        let schema = try SchemaGenerator.schema(for: type)
+        // overhead numbers compare apples to apples. Surface schema-generation
+        // failures as `CastError` for parity with `CastModel.cast(...)`.
+        let schema: JSONSchema
+        do {
+            schema = try SchemaGenerator.schema(for: type)
+        } catch let error as CastError {
+            throw error
+        } catch {
+            throw CastError.schemaGenerationFailed(error.localizedDescription)
+        }
         let annotations = (try? SchemaGenerator.annotations(for: type)) ?? [:]
         let built = PromptEngine.buildPrompt(
             userPrompt: prompt,

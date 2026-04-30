@@ -133,7 +133,8 @@ public struct CastBench: Sendable {
     ///   - config: Sampling, timeout, and JSON-repair knobs forwarded to each
     ///     iteration's ``CastModel/cast(_:as:system:config:didGenerate:)-2yyul`` call.
     /// - Returns: Aggregated ``BenchmarkResult``.
-    /// - Throws: ``CastError`` from the underlying generation call. The first
+    /// - Throws: ``CastError/generationFailed(_:)`` when `iterations < 1`, or
+    ///   any ``CastError`` from the underlying generation call. The first
     ///   failing iteration aborts the run.
     public func run(
         type: (some Decodable & Sendable).Type,
@@ -141,7 +142,9 @@ public struct CastBench: Sendable {
         iterations: Int,
         config: CastConfiguration = CastConfiguration()
     ) async throws -> BenchmarkResult {
-        precondition(iterations >= 1, "CastBench.run requires iterations >= 1")
+        guard iterations >= 1 else {
+            throw CastError.generationFailed("CastBench.run requires iterations >= 1, got \(iterations)")
+        }
 
         var latencies: [Duration] = []
         var tokenCounts: [Int] = []
@@ -203,16 +206,20 @@ public struct CastBench: Sendable {
     ///     ``CastConfiguration/repairTruncatedJSON`` — we measure the raw
     ///     decode rate.
     /// - Returns: Aggregated ``BenchmarkComparison``.
-    /// - Throws: ``CastError`` from the constrained path. The unconstrained
-    ///   path's per-iteration decode failures are *not* thrown — they become
-    ///   ``BenchmarkComparison/unconstrainedValidRate``.
+    /// - Throws: ``CastError/generationFailed(_:)`` when `iterations < 1`, or
+    ///   any ``CastError`` from either the constrained or unconstrained
+    ///   generation path (timeouts, cancellation, schema generation, etc.).
+    ///   The unconstrained path's per-iteration *decode* failures are not
+    ///   thrown — they become ``BenchmarkComparison/unconstrainedValidRate``.
     public func compare(
         type: (some Decodable & Sendable).Type,
         prompt: String,
         iterations: Int,
         config: CastConfiguration = CastConfiguration()
     ) async throws -> BenchmarkComparison {
-        precondition(iterations >= 1, "CastBench.compare requires iterations >= 1")
+        guard iterations >= 1 else {
+            throw CastError.generationFailed("CastBench.compare requires iterations >= 1, got \(iterations)")
+        }
 
         var constrainedLatencies: [Duration] = []
         var constrainedTokens: [Int] = []
@@ -232,10 +239,11 @@ public struct CastBench: Sendable {
 
         var unconstrainedLatencies: [Duration] = []
         var unconstrainedTokens: [Int] = []
-        var unconstrainedSamples: [BenchmarkInstrumentation.IterationSample] = []
         unconstrainedLatencies.reserveCapacity(iterations)
         unconstrainedTokens.reserveCapacity(iterations)
-        unconstrainedSamples.reserveCapacity(iterations)
+        // Only the decoded flag is needed for validRate; do not retain the full
+        // output string per iteration — it can be many KB and adds up fast.
+        var unconstrainedValidCount = 0
 
         for _ in 0 ..< iterations {
             let sample = try await BenchmarkInstrumentation.runUnconstrainedIteration(
@@ -246,7 +254,7 @@ public struct CastBench: Sendable {
             )
             unconstrainedLatencies.append(sample.latency)
             unconstrainedTokens.append(sample.tokenCount)
-            unconstrainedSamples.append(sample)
+            if sample.decoded { unconstrainedValidCount += 1 }
         }
 
         let constrained = aggregate(
@@ -287,7 +295,7 @@ public struct CastBench: Sendable {
             constrained: constrainedWithOverhead,
             unconstrained: unconstrained,
             overheadPercent: overheadPct,
-            unconstrainedValidRate: BenchmarkInstrumentation.validRate(of: unconstrainedSamples)
+            unconstrainedValidRate: Double(unconstrainedValidCount) / Double(iterations)
         )
     }
 
