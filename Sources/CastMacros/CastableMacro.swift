@@ -1,7 +1,7 @@
 import Foundation
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
-import SwiftDiagnostics
 
 public struct CastableMacro {}
 
@@ -11,7 +11,7 @@ extension CastableMacro: MemberMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclGroupSyntax,
-        conformingTo protocols: [TypeSyntax],
+        conformingTo _: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
@@ -37,13 +37,13 @@ extension CastableMacro: MemberMacro {
 
 extension CastableMacro: ExtensionMacro {
     public static func expansion(
-        of node: AttributeSyntax,
-        attachedTo declaration: some DeclGroupSyntax,
+        of _: AttributeSyntax,
+        attachedTo _: some DeclGroupSyntax,
         providingExtensionsOf type: some TypeSyntaxProtocol,
-        conformingTo protocols: [TypeSyntax],
-        in context: some MacroExpansionContext
+        conformingTo _: [TypeSyntax],
+        in _: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
-        let ext: DeclSyntax = "extension \(type.trimmed): Castable {}"
+        let ext: DeclSyntax = "extension \(type.trimmed): Castable, Decodable {}"
         return [ext.cast(ExtensionDeclSyntax.self)]
     }
 }
@@ -127,15 +127,15 @@ private func parseType(_ type: TypeSyntax) -> (name: String, isOptional: Bool, i
 private func collectWrappers(from varDecl: VariableDeclSyntax) -> [WrapperInfo] {
     varDecl.attributes.compactMap { attr -> WrapperInfo? in
         guard let attrSyntax = attr.as(AttributeSyntax.self),
-              let name = attrSyntax.attributeName.as(IdentifierTypeSyntax.self)?.name.text else {
+              let name = attrSyntax.attributeName.as(IdentifierTypeSyntax.self)?.name.text
+        else {
             return nil
         }
 
-        let args: [String]
-        if let argList = attrSyntax.arguments?.as(LabeledExprListSyntax.self) {
-            args = argList.map { "\($0.expression.trimmed)" }
+        let args: [String] = if let argList = attrSyntax.arguments?.as(LabeledExprListSyntax.self) {
+            argList.map { "\($0.expression.trimmed)" }
         } else {
-            args = []
+            []
         }
 
         return WrapperInfo(name: name, arguments: args, node: Syntax(attrSyntax))
@@ -145,7 +145,18 @@ private func collectWrappers(from varDecl: VariableDeclSyntax) -> [WrapperInfo] 
 // MARK: - Validation
 
 private let stringTypes: Set<String> = ["String"]
-private let integerTypes: Set<String> = ["Int", "Int8", "Int16", "Int32", "Int64", "UInt", "UInt8", "UInt16", "UInt32", "UInt64"]
+private let integerTypes: Set<String> = [
+    "Int",
+    "Int8",
+    "Int16",
+    "Int32",
+    "Int64",
+    "UInt",
+    "UInt8",
+    "UInt16",
+    "UInt32",
+    "UInt64"
+]
 private let floatTypes: Set<String> = ["Double", "Float"]
 private let numericTypes: Set<String> = integerTypes.union(floatTypes)
 private let boolTypes: Set<String> = ["Bool"]
@@ -225,7 +236,8 @@ private func parseRangeBounds(_ args: [String]) -> (lower: Double, upper: Double
     let components = cleaned.split(separator: "\t")
     guard components.count == 2,
           let lower = Double(components[0].trimmingCharacters(in: .whitespaces)),
-          let upper = Double(components[1].trimmingCharacters(in: .whitespaces)) else {
+          let upper = Double(components[1].trimmingCharacters(in: .whitespaces))
+    else {
         return nil
     }
     return (lower, upper)
@@ -242,7 +254,7 @@ private func generateSchemaDecl(properties: [PropertyInfo]) -> DeclSyntax {
         propertyEntries.append("(\"\(prop.name)\", \(schemaExpr))")
 
         let isNullable = prop.wrappers.contains { $0.name == "Nullable" }
-        if !prop.isOptional && !isNullable {
+        if !prop.isOptional, !isNullable {
             requiredFields.append("\"\(prop.name)\"")
         }
     }
@@ -261,8 +273,8 @@ private func generateSchemaDecl(properties: [PropertyInfo]) -> DeclSyntax {
     """
 }
 
-private func generateInitDecl(properties: [PropertyInfo]) -> DeclSyntax {
-    return """
+private func generateInitDecl(properties _: [PropertyInfo]) -> DeclSyntax {
+    """
     init() {
     }
     """

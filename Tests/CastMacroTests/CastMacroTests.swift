@@ -1,8 +1,7 @@
+@testable import CastMacros
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import Testing
-
-@testable import CastMacros
 
 let testMacros: [String: any Macro.Type] = [
     "Castable": CastableMacro.self,
@@ -10,7 +9,6 @@ let testMacros: [String: any Macro.Type] = [
 
 @Suite("CastableMacro Expansion")
 struct CastMacroExpansionTests {
-
     @Test("simple struct with primitives")
     func simpleStruct() {
         assertMacroExpansion(
@@ -45,7 +43,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Review: Castable {
+            extension Review: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -80,7 +78,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Profile: Castable {
+            extension Profile: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -112,7 +110,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Rated: Castable {
+            extension Rated: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -147,7 +145,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Lists: Castable {
+            extension Lists: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -182,7 +180,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Opt: Castable {
+            extension Opt: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -217,7 +215,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Article: Castable {
+            extension Article: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -249,7 +247,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Doc: Castable {
+            extension Doc: Castable, Decodable {
             }
             """,
             macros: testMacros
@@ -281,7 +279,7 @@ struct CastMacroExpansionTests {
                 }
             }
 
-            extension Currency: Castable {
+            extension Currency: Castable, Decodable {
             }
             """,
             macros: testMacros
