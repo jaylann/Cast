@@ -1,0 +1,51 @@
+name: PR Conventions
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, unlabeled, synchronize, ready_for_review, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  required-labels:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    steps:
+      - name: Verify type:* and area:* labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          labels=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '.labels[].name')
+          echo "Labels on PR #$PR_NUMBER:"
+          echo "$labels" | sed 's/^/  - /'
+          echo
+
+          type_count=$(echo "$labels" | grep -c '^type:' || true)
+          area_count=$(echo "$labels" | grep -c '^area:' || true)
+
+          missing=()
+          if [ "$type_count" -lt 1 ]; then
+            missing+=("a 'type:*' label (exactly one)")
+          fi
+          if [ "$type_count" -gt 1 ]; then
+            echo "::error::PR has $type_count 'type:*' labels — exactly one is required."
+            exit 1
+          fi
+          if [ "$area_count" -lt 1 ]; then
+            missing+=("at least one 'area:*' label")
+          fi
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::PR is missing required labels: ${missing[*]}"
+            echo "::error::See .claude/rules/pr-conventions.md for the canonical taxonomy."
+            echo "::error::Quick fix: gh pr edit $PR_NUMBER --add-label 'type:X' --add-label 'area:Y'"
+            exit 1
+          fi
+
+          echo "OK: $type_count type:* label, $area_count area:* label(s)."
