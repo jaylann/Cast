@@ -104,3 +104,5 @@ docs/
 
 ## Learnings
 <!-- Append discovered patterns, gotchas, and project-specific knowledge below -->
+- `@Castable` consumers need `import Cast` **plus** `import Collections` and `import JSONSchema` — the macro expansion references `JSONSchema` and `OrderedDictionary` directly and the library does not `@_exported`-re-export them.
+- Runnable examples live in `Examples/` (own `Package.swift`, `.package(path: "..")`); each is `Examples/Sources/<Name>/main.swift`, registered as an `executableTarget`. CI is `.github/workflows/examples.yml` — `swift build` only, no auto-run.
