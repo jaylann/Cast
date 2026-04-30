@@ -1,6 +1,6 @@
+import Collections
 import Foundation
 import JSONSchema
-import Collections
 
 // MARK: - FieldAnnotation
 
@@ -17,18 +17,26 @@ public struct FieldAnnotation: Sendable {
 // MARK: - Castable
 
 /// Types using Cast property wrappers must conform to Castable.
-/// Requires a no-arg init so constraint values from default initializers are preserved.
-/// The @Castable macro (Phase 2) will synthesize this automatically.
+///
+/// Requires a no-arg init so constraint values from default initializers are
+/// preserved. The `@Castable` macro synthesizes both the init and the nested
+/// ``PartiallyGenerated`` mirror — a struct of the same shape with every
+/// property made `Optional` — used by ``CastModel/castStream(_:as:system:config:)``
+/// to surface in-flight values as the model fills them in.
 public protocol Castable: Decodable, Sendable {
+    /// Mirror of `Self` whose properties are all `Optional`. Defaults to `Self`
+    /// for hand-rolled `Castable` types that don't go through the macro;
+    /// streamed updates of those types are emitted only at the terminal yield.
+    associatedtype PartiallyGenerated: Sendable & Decodable = Self
+
     init()
 }
 
 // MARK: - SchemaGenerator
 
 public enum SchemaGenerator {
-
     private static let lock = NSLock()
-    private static nonisolated(unsafe) var cache: [ObjectIdentifier: CacheEntry] = [:]
+    private nonisolated(unsafe) static var cache: [ObjectIdentifier: CacheEntry] = [:]
 
     private struct CacheEntry: Sendable {
         let schema: JSONSchema
@@ -104,11 +112,9 @@ public enum SchemaGenerator {
                 case "minLength":
                     constraints.minLength = prop.value as? Int
                 case "lowerBound":
-                    if let v = prop.value as? Int { constraints.intMin = v }
-                    else if let v = prop.value as? Double { constraints.doubleMin = v }
+                    if let v = prop.value as? Int { constraints.intMin = v } else if let v = prop.value as? Double { constraints.doubleMin = v }
                 case "upperBound":
-                    if let v = prop.value as? Int { constraints.intMax = v }
-                    else if let v = prop.value as? Double { constraints.doubleMax = v }
+                    if let v = prop.value as? Int { constraints.intMax = v } else if let v = prop.value as? Double { constraints.doubleMax = v }
                 case "maxCount":
                     constraints.maxItems = prop.value as? Int
                 case "minCount":
@@ -200,10 +206,20 @@ public enum SchemaGenerator {
         case .integer:
             return .integer(description: description, minimum: c.intMin, maximum: c.intMax)
         case .number:
-            return .number(description: description, multipleOf: c.multipleOf, minimum: c.doubleMin, maximum: c.doubleMax)
-        case .array(let element):
+            return .number(
+                description: description,
+                multipleOf: c.multipleOf,
+                minimum: c.doubleMin,
+                maximum: c.doubleMax
+            )
+        case let .array(element):
             let itemSchema = baseSchema(for: element)
-            return .array(description: description, items: itemSchema, minItems: c.exactCount ?? c.minItems, maxItems: c.exactCount ?? c.maxItems)
+            return .array(
+                description: description,
+                items: itemSchema,
+                minItems: c.exactCount ?? c.minItems,
+                maxItems: c.exactCount ?? c.maxItems
+            )
         default:
             if let description {
                 return withDescription(kind, description)
@@ -215,27 +231,27 @@ public enum SchemaGenerator {
     /// Create a base schema from SchemaKind with just a description.
     private static func withDescription(_ kind: SchemaKind, _ desc: String) -> JSONSchema {
         switch kind {
-        case .string: return .string(description: desc)
-        case .integer: return .integer(description: desc)
-        case .number: return .number(description: desc)
-        case .boolean: return .boolean(description: desc)
-        case .array(let element):
-            return .array(description: desc, items: baseSchema(for: element))
+        case .string: .string(description: desc)
+        case .integer: .integer(description: desc)
+        case .number: .number(description: desc)
+        case .boolean: .boolean(description: desc)
+        case let .array(element):
+            .array(description: desc, items: baseSchema(for: element))
         case .object, .enumeration:
-            return baseSchema(for: kind)
+            baseSchema(for: kind)
         }
     }
 
     /// Convert a SchemaKind to a basic JSONSchema (no constraints).
     private static func baseSchema(for kind: SchemaKind) -> JSONSchema {
         switch kind {
-        case .string: return .string()
-        case .integer: return .integer()
-        case .number: return .number()
-        case .boolean: return .boolean()
-        case .array(let element): return .array(items: baseSchema(for: element))
-        case .object: return .object()
-        case .enumeration: return .string()
+        case .string: .string()
+        case .integer: .integer()
+        case .number: .number()
+        case .boolean: .boolean()
+        case let .array(element): .array(items: baseSchema(for: element))
+        case .object: .object()
+        case .enumeration: .string()
         }
     }
 }
@@ -259,11 +275,11 @@ private struct FieldConstraints {
 
     var hasConstraints: Bool {
         maxLength != nil || minLength != nil ||
-        intMin != nil || intMax != nil ||
-        doubleMin != nil || doubleMax != nil ||
-        maxItems != nil || minItems != nil ||
-        oneOfValues != nil ||
-        pattern != nil || multipleOf != nil ||
-        exactCount != nil || isNullable
+            intMin != nil || intMax != nil ||
+            doubleMin != nil || doubleMax != nil ||
+            maxItems != nil || minItems != nil ||
+            oneOfValues != nil ||
+            pattern != nil || multipleOf != nil ||
+            exactCount != nil || isNullable
     }
 }

@@ -12,6 +12,9 @@
 ///     @MinCount(1) var ingredients: [String]
 /// }
 /// ```
-@attached(member, names: named(castSchema), named(init))
+@attached(
+    member,
+    names: named(castSchema), named(init), named(PartiallyGenerated)
+)
 @attached(extension, conformances: Castable, Decodable)
 public macro Castable() = #externalMacro(module: "CastMacros", type: "CastableMacro")

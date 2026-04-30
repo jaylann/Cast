@@ -28,8 +28,9 @@ extension CastableMacro: MemberMacro {
 
         let schemaDecl = generateSchemaDecl(properties: properties)
         let initDecl = generateInitDecl(properties: properties)
+        let partialDecl = generatePartiallyGeneratedDecl(properties: properties)
 
-        return [schemaDecl, initDecl]
+        return [schemaDecl, initDecl, partialDecl]
     }
 }
 
@@ -276,6 +277,55 @@ private func generateSchemaDecl(properties: [PropertyInfo]) -> DeclSyntax {
 private func generateInitDecl(properties _: [PropertyInfo]) -> DeclSyntax {
     """
     init() {
+    }
+    """
+}
+
+// MARK: - PartiallyGenerated Synthesis
+
+/// Project a property's type onto its `PartiallyGenerated` form: known
+/// primitives keep their own type, everything else is treated as a nested
+/// `Castable` and routed through `.PartiallyGenerated`. Arrays carry the
+/// projection through to their element type. The whole field is then made
+/// Optional regardless of whether it was Optional originally — partial
+/// snapshots have no notion of "required".
+private func partialFieldType(for prop: PropertyInfo) -> String {
+    if prop.isArray {
+        let element = prop.arrayElementType ?? "String"
+        return "[\(partialElementType(element))]?"
+    }
+    return "\(partialBaseType(prop.typeName))?"
+}
+
+private func partialBaseType(_ typeName: String) -> String {
+    if stringTypes.contains(typeName) || numericTypes.contains(typeName) || boolTypes.contains(typeName) {
+        return typeName
+    }
+    return "\(typeName).PartiallyGenerated"
+}
+
+private func partialElementType(_ typeName: String) -> String {
+    if stringTypes.contains(typeName) || numericTypes.contains(typeName) || boolTypes.contains(typeName) {
+        return typeName
+    }
+    return "\(typeName).PartiallyGenerated"
+}
+
+private func generatePartiallyGeneratedDecl(properties: [PropertyInfo]) -> DeclSyntax {
+    let fields = properties
+        .map { "var \($0.name): \(partialFieldType(for: $0))" }
+        .joined(separator: "\n        ")
+
+    if properties.isEmpty {
+        return """
+        struct PartiallyGenerated: Sendable, Decodable {
+        }
+        """
+    }
+
+    return """
+    struct PartiallyGenerated: Sendable, Decodable {
+        \(raw: fields)
     }
     """
 }
