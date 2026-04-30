@@ -5,7 +5,6 @@ import os
 @preconcurrency import MLXLLM
 
 public final class CastModel: Sendable {
-
     private let _container: OSAllocatedUnfairLock<ModelContainer?>
     let _configuration: OSAllocatedUnfairLock<ModelConfiguration?>
     let grammarCache = GrammarProcessorCache()
@@ -31,6 +30,13 @@ public final class CastModel: Sendable {
     init(_testContainer: ModelContainer? = nil) {
         _container = OSAllocatedUnfairLock(initialState: _testContainer)
         _configuration = OSAllocatedUnfairLock(initialState: nil)
+    }
+
+    /// Creates a CastModel wrapping an existing loaded ModelContainer.
+    /// Use when the caller manages model loading independently.
+    public init(wrapping container: ModelContainer, configuration: ModelConfiguration) {
+        _container = OSAllocatedUnfairLock(initialState: container)
+        _configuration = OSAllocatedUnfairLock(initialState: configuration)
     }
 
     public static func load(
