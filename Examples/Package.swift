@@ -122,6 +122,14 @@ let package = Package(
                 .product(name: "JSONSchema", package: "swift-json-schema"),
                 .product(name: "Collections", package: "swift-collections")
             ]
+        ),
+        .executableTarget(
+            name: "SwiftUIDemo",
+            dependencies: [
+                .product(name: "Cast", package: "Cast"),
+                .product(name: "JSONSchema", package: "swift-json-schema"),
+                .product(name: "Collections", package: "swift-collections")
+            ]
         )
     ]
 )
