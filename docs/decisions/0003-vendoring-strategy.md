@@ -46,8 +46,8 @@ In both cases, modifications use Apache-2.0 §4(b) `// Modifications:` markers
 - `MLXStructured` requires periodic upstream merge work; the cost is ours and
   the procedure is the documented escape valve.
 - Fresh clones that skip `git submodule update --init --recursive` fail to
-  build with missing-header errors from `xgrammar`. The README install
-  snippet calls this out.
+  build with missing-header errors from `xgrammar`. The README's
+  "Local development" section documents the init step.
 - Switching either upstream's vendoring mechanism (e.g. promoting
   `MLXStructured` to a real SwiftPM dependency once its API is stable) is a
   follow-up ADR.

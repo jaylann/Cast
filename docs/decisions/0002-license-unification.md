@@ -21,8 +21,12 @@ position.
 
 ## Decision
 
-Cast and every vendored upstream are **Apache-2.0**. Concretely:
+Cast itself is **Apache-2.0**, and vendored code MUST be
+**Apache-2.0-compatible**. Concretely:
 
+- Cast's own sources and the existing vendored upstreams
+  (`Sources/MLXStructured/`, `Sources/CMLXStructured/xgrammar/`) are
+  Apache-2.0.
 - New vendored code MUST be Apache-2.0-compatible: Apache-2.0, MIT, BSD-2, or
   BSD-3. **GPL / AGPL / LGPL are prohibited** without an explicit ADR-level
   decision.

@@ -21,7 +21,7 @@ Cast uses a two-branch staged release model:
 - **`main`** is release-only. It is advanced exclusively by
   `.github/workflows/release.yml` (`workflow_dispatch`, semver input). The
   workflow validates semver, checks tag uniqueness, verifies stage CI is
-  green for the current `stage` HEAD, fast-forwards `main` → `stage`, tags
+  green for the current `stage` HEAD, fast-forwards `stage` → `main`, tags
   `vX.Y.Z`, and creates a GitHub Release with auto-generated notes.
 - DocC publishes from `main` via `.github/workflows/docs.yml`. Swift Package
   Index auto-indexes new tags.

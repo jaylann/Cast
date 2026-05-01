@@ -28,6 +28,22 @@ targets: [
 
 Requires macOS 14 / iOS 17 and Swift 6.
 
+## Local development
+
+If you're cloning Cast itself (as opposed to depending on it via SwiftPM),
+initialize the bundled C/C++ submodule before the first `swift build`:
+
+```bash
+git clone https://github.com/jaylann/Cast.git
+cd Cast
+git submodule update --init --recursive
+swift build
+```
+
+Without the submodule init, `swift build` fails with missing-header errors
+from `xgrammar` (`'xgrammar/matcher.h' file not found`,
+`'dlpack/dlpack.h' file not found`).
+
 ## Quickstart
 
 ```swift

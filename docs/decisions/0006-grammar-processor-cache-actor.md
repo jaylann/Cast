@@ -42,21 +42,22 @@ Failure path: the task completes with an error, the key is removed from
 `inFlight`, and the next call retries from scratch (transient Hub failures
 should not poison the cache).
 
-Cache scope is **per-`CastModel`**: each model owns its own actor instance
-(line 17 of `CastModel.swift`). This avoids cross-model interference and
-makes `clear()` semantics scoped and obvious.
+Cache scope is **per-`CastModel`**: each model owns its own
+`GrammarProcessorCache` instance (held by `CastModel`). This avoids
+cross-model interference and makes `clear()` semantics scoped and obvious.
 
 ## Verification
 
-`Tests/CastTests/CacheTests.swift` covers:
+`Tests/CastTests/CacheTests.swift` currently covers the smoke surface only:
 
-- Cache hit (second call returns the same artifact).
-- In-flight de-duplication (N concurrent callers run the loader once).
-- Retry after failure (failing loader doesn't poison the cache).
-- `warmUp` (eager population).
-- `clear` (post-clear lookup re-runs the loader).
+- `prepare` throws `CastError.modelNotLoaded` when no model is wired up.
+- `clear()` runs without error.
 
-Tests added in the PR for issue #91.
+The richer behaviors described in the Decision section — cache hit,
+in-flight de-duplication under fan-out, retry-after-failure, and
+`warmUp` — are not yet exercised in the test suite. Adding them is
+tracked separately (issue #91); this ADR documents the intended
+semantics so the test additions have a contract to verify against.
 
 ## Consequences
 
@@ -69,5 +70,6 @@ Tests added in the PR for issue #91.
   is the natural unit of model lifecycle); revisit if multi-model fan-out
   becomes common.
 - The actor boundary serializes mutations to `cache` and `inFlight` but does
-  not serialize the loader itself — the loader runs on a detached task and
-  the actor only re-enters at completion to install the result.
+  not serialize the loader itself — the loader runs in a separate
+  unstructured `Task { … }` and the actor only re-enters at completion to
+  install the result.
