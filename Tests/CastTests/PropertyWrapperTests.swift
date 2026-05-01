@@ -5,7 +5,7 @@ import Testing
 struct TestStruct {
     @MaxLength(100) var title: String = ""
     @MinLength(1) var name: String = ""
-    @CastRange(1 ... 10) var rating: Int = 0
+    @CastRange(1...10) var rating: Int = 0
     @MaxCount(5) var tags: [String] = []
     @MinCount(1) var items: [String] = []
     @OneOf(["USD", "EUR"]) var currency: String = ""
