@@ -2,16 +2,30 @@ import Foundation
 import JSONSchema
 
 public enum PromptEngine {
+    /// Build a system + user prompt pair that embeds the JSON schema the
+    /// model must conform to. When `system` is supplied, it is returned
+    /// verbatim as the system message; otherwise a default system message
+    /// is synthesized from the schema and any per-field annotations.
+    ///
+    /// - Parameters:
+    ///   - userPrompt: The user-facing instruction returned as the user message.
+    ///   - schema: The JSON schema the output must conform to.
+    ///   - annotations: Optional per-field guidance (description, examples).
+    ///   - system: Optional override for the system message.
+    /// - Throws: ``CastError/schemaGenerationFailed(_:)`` if the schema
+    ///   cannot be JSON-encoded (e.g. it carries a non-finite `Double`
+    ///   constant such as `.nan` that `JSONEncoder` rejects under its
+    ///   default `nonConformingFloatEncodingStrategy`).
     public static func buildPrompt(
         userPrompt: String,
         schema: JSONSchema,
         annotations: [String: FieldAnnotation] = [:],
         system: String? = nil
-    ) -> (system: String, user: String) {
+    ) throws -> (system: String, user: String) {
         let systemPrompt: String = if let system {
             system
         } else {
-            buildDefaultSystem(schema: schema, annotations: annotations)
+            try buildDefaultSystem(schema: schema, annotations: annotations)
         }
         return (system: systemPrompt, user: userPrompt)
     }
@@ -19,7 +33,7 @@ public enum PromptEngine {
     private static func buildDefaultSystem(
         schema: JSONSchema,
         annotations: [String: FieldAnnotation]
-    ) -> String {
+    ) throws -> String {
         var parts: [String] = []
 
         parts.append("You are a structured data extraction assistant.")
@@ -28,13 +42,19 @@ public enum PromptEngine {
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-        if let data = try? encoder.encode(schema),
-           let str = String(data: data, encoding: .utf8) {
-            parts.append("JSON Schema:")
-            parts.append(str)
-        } else {
-            parts.append("[Schema encoding failed]")
+        let data: Data
+        do {
+            data = try encoder.encode(schema)
+        } catch {
+            throw CastError.schemaGenerationFailed(
+                "Failed to encode JSON schema: \(error.localizedDescription)"
+            )
         }
+        guard let str = String(data: data, encoding: .utf8) else {
+            throw CastError.schemaGenerationFailed("Encoded JSON schema is not valid UTF-8")
+        }
+        parts.append("JSON Schema:")
+        parts.append(str)
 
         let guidance = annotations.sorted(by: { $0.key < $1.key }).compactMap { field, ann -> String? in
             var items: [String] = []
@@ -88,14 +108,22 @@ public enum PromptEngine {
     ///   - schema: The JSON schema the output must conform to.
     ///   - annotations: Optional per-field guidance (description, examples).
     ///   - system: Optional override for the system message.
+    /// - Throws: ``CastError/schemaGenerationFailed(_:)`` if the schema
+    ///   cannot be JSON-encoded (e.g. it carries a non-finite `Double`
+    ///   constant such as `.nan` that `JSONEncoder` rejects under its
+    ///   default `nonConformingFloatEncodingStrategy`).
     public static func buildExtractionPrompt(
         text: String,
         instruction: String,
         schema: JSONSchema,
         annotations: [String: FieldAnnotation] = [:],
         system: String? = nil
-    ) -> (system: String, user: String) {
-        let systemPrompt = system ?? buildExtractionSystem(schema: schema, annotations: annotations)
+    ) throws -> (system: String, user: String) {
+        let systemPrompt: String = if let system {
+            system
+        } else {
+            try buildExtractionSystem(schema: schema, annotations: annotations)
+        }
         let user = buildExtractionUser(text: text, instruction: instruction)
         return (system: systemPrompt, user: user)
     }
@@ -103,7 +131,7 @@ public enum PromptEngine {
     private static func buildExtractionSystem(
         schema: JSONSchema,
         annotations: [String: FieldAnnotation]
-    ) -> String {
+    ) throws -> String {
         var parts: [String] = []
 
         parts.append("You are a structured data extraction assistant.")
@@ -116,13 +144,19 @@ public enum PromptEngine {
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-        if let data = try? encoder.encode(schema),
-           let str = String(data: data, encoding: .utf8) {
-            parts.append("JSON Schema:")
-            parts.append(str)
-        } else {
-            parts.append("[Schema encoding failed]")
+        let data: Data
+        do {
+            data = try encoder.encode(schema)
+        } catch {
+            throw CastError.schemaGenerationFailed(
+                "Failed to encode JSON schema: \(error.localizedDescription)"
+            )
         }
+        guard let str = String(data: data, encoding: .utf8) else {
+            throw CastError.schemaGenerationFailed("Encoded JSON schema is not valid UTF-8")
+        }
+        parts.append("JSON Schema:")
+        parts.append(str)
 
         let guidance = annotations.sorted(by: { $0.key < $1.key }).compactMap { field, ann -> String? in
             var items: [String] = []

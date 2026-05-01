@@ -22,9 +22,7 @@ Full source: [Examples/Sources/ValidatorAndExcluding/main.swift](https://github.
 //      one prompt should populate only a subset of a struct's fields.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Contact {

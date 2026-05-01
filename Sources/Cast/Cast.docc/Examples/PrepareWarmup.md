@@ -18,9 +18,7 @@ Full source: [Examples/Sources/PrepareWarmup/main.swift](https://github.com/jayl
 // cost up front instead of inside your first user-visible call.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Note {

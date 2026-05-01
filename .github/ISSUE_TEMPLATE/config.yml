@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/jaylann/Cast/blob/main/README.md
+    url: https://github.com/jaylann/Cast#readme
     about: Check the README for setup and usage instructions
+  - name: API Reference (DocC)
+    url: https://swiftpackageindex.com/jaylann/Cast/documentation/cast
+    about: Generated DocC site with API and example articles
+  - name: Security Vulnerability
+    url: https://github.com/jaylann/Cast/security/advisories/new
+    about: Report a security issue privately. Do not file a public issue.

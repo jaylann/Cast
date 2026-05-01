@@ -1,0 +1,24 @@
+# CODEOWNERS — see https://docs.github.com/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+#
+# Default owner for everything in the repo. Listed first so later, more specific
+# rules can override (last match wins).
+* @jaylann
+
+# Public API — high-care surface; any change is a contract change.
+/Sources/Cast/API/                     @jaylann
+
+# Macros — silent-fail-prone (named() lists, severity filters). Always reviewed.
+/Sources/CastMacros/                   @jaylann
+
+# Vendored upstreams — modifications must preserve license headers + add a NOTICE entry.
+/Sources/MLXStructured/                @jaylann
+/Sources/CMLXStructured/               @jaylann
+
+# Repo + CI configuration.
+/.github/                              @jaylann
+/Package.swift                         @jaylann
+/Package.resolved                      @jaylann
+/.coderabbit.yaml                      @jaylann
+
+# Architecture decisions — design changes go through ADRs.
+/docs/decisions/                       @jaylann

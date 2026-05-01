@@ -12,9 +12,7 @@ Full source: [Examples/Sources/Streaming/main.swift](https://github.com/jaylann/
 // field appears as the model fills it in.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Recipe {

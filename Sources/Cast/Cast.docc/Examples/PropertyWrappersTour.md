@@ -14,9 +14,7 @@ Full source: [Examples/Sources/PropertyWrappersTour/main.swift](https://github.c
 // ValidatorAndExcluding example, per the issue conventions.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Recipe {

@@ -3,8 +3,6 @@
 #if os(macOS) || os(iOS)
 
     import Cast
-    import Collections
-    import JSONSchema
     import Observation
     import SwiftUI
 

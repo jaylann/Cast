@@ -12,9 +12,7 @@ Full source: [Examples/Sources/HelloCast/main.swift](https://github.com/jaylann/
 // value with a single cast(_:) call. The minimal first-touch example.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Person {

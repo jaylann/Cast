@@ -2,9 +2,7 @@
 // field appears as the model fills it in.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Recipe {

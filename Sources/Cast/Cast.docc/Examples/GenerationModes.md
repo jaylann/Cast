@@ -14,9 +14,7 @@ Full source: [Examples/Sources/GenerationModes/main.swift](https://github.com/ja
 // JSON string.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct BookSummary {

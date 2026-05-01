@@ -16,9 +16,7 @@ Full source: [Examples/Sources/NestedTypes/main.swift](https://github.com/jaylan
 // inventing extra keys at any level.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Author {

@@ -2,9 +2,7 @@
 // grammar overhead, and (optionally) compare against unconstrained generation.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Person {

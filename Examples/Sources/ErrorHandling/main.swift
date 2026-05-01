@@ -3,9 +3,7 @@
 // unsupportedType errors before the user ever issues a request.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Quote {

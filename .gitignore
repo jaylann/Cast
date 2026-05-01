@@ -37,8 +37,11 @@ models/
 .xcodebuild-home/
 .xcodebuild-tmp/
 
-# Claude Code config
-.claude/
+# Claude Code — track project-shared config (rules, agents, skills, hooks, baseline
+# settings.json), keep machine-specific state local.
+.claude/settings.local.json
+.claude/worktrees/
+.claude/.credentials.json
 
 # Project plan
 plan.md

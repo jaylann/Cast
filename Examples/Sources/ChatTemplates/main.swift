@@ -1,14 +1,12 @@
 // What this shows: the same prompt routed through five different model
 // families to demonstrate cross-family chat-template support. Cast hands a
 // flat "(system)\n\n(prompt)" string to MLXLMCommon's processor.prepare,
-// which applies each tokenizer's chat_template — Qwen <|im_start|>,
-// Llama <|begin_of_text|>, Mistral [INST], Phi <|user|>, Gemma
-// <start_of_turn>. No per-family code paths in Cast.
+// which applies each tokenizer's chat_template — Qwen `<|im_start|>`,
+// Llama `<|begin_of_text|>`, Mistral `[INST]`, Phi `<|user|>`, Gemma
+// `<start_of_turn>`. No per-family code paths in Cast.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Greeting {
