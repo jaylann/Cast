@@ -20,9 +20,7 @@ Full source: [Examples/Sources/ChatTemplates/main.swift](https://github.com/jayl
 // <start_of_turn>. No per-family code paths in Cast.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Greeting {

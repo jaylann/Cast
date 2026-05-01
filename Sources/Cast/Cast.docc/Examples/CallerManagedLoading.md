@@ -16,9 +16,7 @@ Full source: [Examples/Sources/CallerManagedLoading/main.swift](https://github.c
 // and free-form chat, or you want a single download to back several CastModels.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 import MLXLLM
 import MLXLMCommon
 

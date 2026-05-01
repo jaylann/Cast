@@ -12,8 +12,6 @@ Full source: [Examples/Sources/SwiftUIDemo/main.swift](https://github.com/jaylan
 #if os(macOS) || os(iOS)
 
     import Cast
-    import Collections
-    import JSONSchema
     import Observation
     import SwiftUI
 

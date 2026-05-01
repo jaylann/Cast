@@ -10,9 +10,7 @@ Full source: [Examples/Sources/Extract/main.swift](https://github.com/jaylann/Ca
 // What this shows: extract structured fields from a block of unstructured text via model.extract(from:as:instruction:).
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 /// Optional fields demonstrate the no-invention contract: a missing
 /// value in the source can decode to `nil` rather than being hallucinated.
