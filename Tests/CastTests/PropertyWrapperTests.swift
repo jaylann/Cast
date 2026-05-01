@@ -1,7 +1,6 @@
+@testable import Cast
 import Foundation
 import Testing
-
-@testable import Cast
 
 struct TestStruct {
     @MaxLength(100) var title: String = ""
@@ -16,73 +15,72 @@ struct TestStruct {
 
 @Suite("PropertyWrappers")
 struct PropertyWrapperTests {
-
     let instance = TestStruct()
 
     // MARK: - Mirror constraint detection
 
     @Test("MaxLength constraint readable via Mirror")
-    func maxLengthMirror() {
+    func maxLengthMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_title" }!
-        let wrapper = child.value as! MaxLength<String>
+        let child = try #require(mirror.children.first { $0.label == "_title" })
+        let wrapper = try #require(child.value as? MaxLength<String>)
         #expect(wrapper.maxLength == 100)
     }
 
     @Test("MinLength constraint readable via Mirror")
-    func minLengthMirror() {
+    func minLengthMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_name" }!
-        let wrapper = child.value as! MinLength<String>
+        let child = try #require(mirror.children.first { $0.label == "_name" })
+        let wrapper = try #require(child.value as? MinLength<String>)
         #expect(wrapper.minLength == 1)
     }
 
     @Test("CastRange constraint readable via Mirror")
-    func castRangeMirror() {
+    func castRangeMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_rating" }!
-        let wrapper = child.value as! CastRange<Int, Int>
+        let child = try #require(mirror.children.first { $0.label == "_rating" })
+        let wrapper = try #require(child.value as? CastRange<Int, Int>)
         #expect(wrapper.lowerBound == 1)
         #expect(wrapper.upperBound == 10)
     }
 
     @Test("MaxCount constraint readable via Mirror")
-    func maxCountMirror() {
+    func maxCountMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_tags" }!
-        let wrapper = child.value as! MaxCount<[String]>
+        let child = try #require(mirror.children.first { $0.label == "_tags" })
+        let wrapper = try #require(child.value as? MaxCount<[String]>)
         #expect(wrapper.maxCount == 5)
     }
 
     @Test("MinCount constraint readable via Mirror")
-    func minCountMirror() {
+    func minCountMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_items" }!
-        let wrapper = child.value as! MinCount<[String]>
+        let child = try #require(mirror.children.first { $0.label == "_items" })
+        let wrapper = try #require(child.value as? MinCount<[String]>)
         #expect(wrapper.minCount == 1)
     }
 
     @Test("OneOf constraint readable via Mirror")
-    func oneOfMirror() {
+    func oneOfMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_currency" }!
-        let wrapper = child.value as! OneOf<String>
+        let child = try #require(mirror.children.first { $0.label == "_currency" })
+        let wrapper = try #require(child.value as? OneOf<String>)
         #expect(wrapper.values == ["USD", "EUR"])
     }
 
     @Test("Description constraint readable via Mirror")
-    func descriptionMirror() {
+    func descriptionMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_summary" }!
-        let wrapper = child.value as! Description<String>
+        let child = try #require(mirror.children.first { $0.label == "_summary" })
+        let wrapper = try #require(child.value as? Description<String>)
         #expect(wrapper.descriptionText == "A description")
     }
 
     @Test("Examples constraint readable via Mirror")
-    func examplesMirror() {
+    func examplesMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_review" }!
-        let wrapper = child.value as! Examples<String>
+        let child = try #require(mirror.children.first { $0.label == "_review" })
+        let wrapper = try #require(child.value as? Examples<String>)
         #expect(wrapper.examples == ["Good", "Bad"])
     }
 
