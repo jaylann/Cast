@@ -32,3 +32,11 @@ jobs:
 
       - name: Run Tests
         run: swift test
+
+      - name: Verify DocC examples are in sync with Examples/Sources/
+        run: |
+          ./scripts/generate-example-docs.sh
+          if ! git diff --exit-code Sources/Cast/Cast.docc/Examples/; then
+            echo "::error::Sources/Cast/Cast.docc/Examples/ is out of sync with Examples/Sources/. Run ./scripts/generate-example-docs.sh and commit the result."
+            exit 1
+          fi

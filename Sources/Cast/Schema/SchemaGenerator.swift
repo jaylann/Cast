@@ -82,12 +82,12 @@ public enum SchemaGenerator {
 
         // Use Castable.init() when available — preserves property wrapper constraint values.
         // The ZeroSchemaDecoder instance loses constraints because wrappers' Decodable init
-        // can't reconstruct them from JSON.
-        let mirrorInstance: any Sendable
-        if let castableType = type as? any Castable.Type {
-            mirrorInstance = castableType.init() as! any Sendable
+        // can't reconstruct them from JSON. `Mirror(reflecting:)` takes `Any`, so the local
+        // is typed `Any` to avoid an existential cast on the Sendable side.
+        let mirrorInstance: Any = if let castableType = type as? any Castable.Type {
+            castableType.init()
         } else {
-            mirrorInstance = info.zeroInstance
+            info.zeroInstance
         }
         let mirror = Mirror(reflecting: mirrorInstance)
 

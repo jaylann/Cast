@@ -76,13 +76,14 @@ public extension CastModel {
         }
 
         let schema: JSONSchema
+        let annotations: [String: FieldAnnotation]
         do {
             schema = try SchemaGenerator.schema(for: type)
+            annotations = try SchemaGenerator.annotations(for: type)
         } catch {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let annotations = (try? SchemaGenerator.annotations(for: type)) ?? [:]
         let built = PromptEngine.buildPrompt(
             userPrompt: prompt,
             schema: schema,
