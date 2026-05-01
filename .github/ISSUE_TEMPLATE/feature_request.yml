@@ -38,17 +38,24 @@ body:
     id: area
     attributes:
       label: Area
-      description: What part of Cast does this affect?
+      description: Which subsystem does this affect? Maps to the `area:*` label taxonomy.
       options:
-        - Grammar compilation
-        - "@Castable macro"
-        - Constrained sampler
-        - Tokenizer / caching
-        - Public API (CastModel, property wrappers)
-        - MLX integration
-        - Benchmarking
-        - Prompt engine
-        - Other
+        - "api — Public surface (CastModel, property wrappers, CastError)"
+        - "macro — @Castable macro (Sources/CastMacros)"
+        - "grammar — Grammar rules / state machines"
+        - "sampler — Constrained sampler / logit masking"
+        - "tokenizer — Tokenizer binding / cache"
+        - "prompt — Prompt engine / chat templates"
+        - "schema — JSON schema generation"
+        - "safety — GPU lifecycle, error handling, cancellation"
+        - "mlx — MLX Swift integration / vendored MLXStructured"
+        - "examples — Examples/ subpackage"
+        - "docs — DocC, README, ADRs"
+        - "performance — Cross-cutting perf"
+        - "compat — Model / platform compatibility"
+        - "ci — Workflows / build infra"
+        - "tooling — Developer tooling / scripts"
+        - "Other / not sure"
     validations:
       required: true
 

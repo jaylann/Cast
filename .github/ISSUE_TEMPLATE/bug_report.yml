@@ -8,6 +8,8 @@ body:
       value: |
         Thanks for reporting a bug! Please fill out all required fields.
 
+        > **Security issues**: do not file a public bug — use [private vulnerability reporting](https://github.com/jaylann/Cast/security/advisories/new) instead.
+
   - type: textarea
     id: description
     attributes:
@@ -49,30 +51,24 @@ body:
     id: area
     attributes:
       label: Area
-      description: What part of Cast is affected?
+      description: Which subsystem is affected? Maps to the `area:*` label taxonomy.
       options:
-        - Grammar compilation
-        - "@Castable macro"
-        - Constrained sampler
-        - Tokenizer / caching
-        - Public API (CastModel, property wrappers)
-        - MLX integration
-        - Benchmarking
-        - Prompt engine
-        - Other
-    validations:
-      required: true
-
-  - type: dropdown
-    id: priority
-    attributes:
-      label: Severity
-      description: How severe is this bug?
-      options:
-        - Critical (crash, incorrect output)
-        - High (major feature broken)
-        - Medium (feature partially broken)
-        - Low (minor inconvenience)
+        - "api — Public surface (CastModel, property wrappers, CastError)"
+        - "macro — @Castable macro (Sources/CastMacros)"
+        - "grammar — Grammar rules / state machines"
+        - "sampler — Constrained sampler / logit masking"
+        - "tokenizer — Tokenizer binding / cache"
+        - "prompt — Prompt engine / chat templates"
+        - "schema — JSON schema generation"
+        - "safety — GPU lifecycle, error handling, cancellation"
+        - "mlx — MLX Swift integration / vendored MLXStructured"
+        - "examples — Examples/ subpackage"
+        - "docs — DocC, README, ADRs"
+        - "performance — Cross-cutting perf"
+        - "compat — Model / platform compatibility"
+        - "ci — Workflows / build infra"
+        - "tooling — Developer tooling / scripts"
+        - "Other / not sure"
     validations:
       required: true
 
