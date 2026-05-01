@@ -66,10 +66,11 @@ semantics so the test additions have a contract to verify against.
 - No duplicate Hub fetches under fan-out, removing a class of rate-limit
   failures.
 - Cache scope is per-`CastModel`: two `CastModel` instances loading the same
-  underlying checkpoint cache independently. Acceptable today (a `CastModel`
-  is the natural unit of model lifecycle); revisit if multi-model fan-out
-  becomes common.
+  underlying checkpoint cache the artifacts independently. Acceptable today
+  (a `CastModel` is the natural unit of model lifecycle); revisit if
+  multi-model fan-out becomes common.
 - The actor boundary serializes mutations to `cache` and `inFlight` but does
   not serialize the loader itself — the loader runs in a separate
-  unstructured `Task { … }` and the actor only re-enters at completion to
-  install the result.
+  unstructured `Task { … }` so concurrent callers for distinct keys don't
+  block each other on the network/parse step. The actor method awaits
+  `task.value` directly and resumes inside the actor to install the result.
