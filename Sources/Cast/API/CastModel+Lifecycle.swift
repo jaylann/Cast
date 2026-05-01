@@ -75,11 +75,6 @@ public extension CastModel {
         /// No-op on macOS / non-UIKit platforms.
         func enableBackgroundSafety() {
             let key = ObjectIdentifier(self)
-            let already = _observers.withLock { dict in
-                dict[key] != nil
-            }
-            if already { return }
-
             let center = NotificationCenter.default
             let weakSelf = WeakBox(self)
 
@@ -114,8 +109,19 @@ public extension CastModel {
                 willResignActive: willResign,
                 memoryWarning: memWarn
             )
-            _observers.withLock { dict in
+
+            // Single atomic check-and-insert: prevents two concurrent callers
+            // from both passing a check then both registering observer trios.
+            let inserted = _observers.withLock { dict -> Bool in
+                guard dict[key] == nil else { return false }
                 dict[key] = observers
+                return true
+            }
+
+            if !inserted {
+                center.removeObserver(didEnter)
+                center.removeObserver(willResign)
+                center.removeObserver(memWarn)
             }
         }
 

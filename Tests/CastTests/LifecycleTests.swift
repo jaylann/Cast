@@ -77,4 +77,37 @@ import Testing
         lock.lock(); let final = cancelled; lock.unlock()
         #expect(final == true)
     }
+
+    /// Regression for #114: concurrent enableBackgroundSafety() must not leak
+    /// orphan observers into NotificationCenter. After racing N enables and a
+    /// single disable, posting didEnterBackground must not reach the model.
+    @Test func enableBackgroundSafetyIsRaceSafe() async {
+        let model = CastModel()
+
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0 ..< 64 {
+                group.addTask { model.enableBackgroundSafety() }
+            }
+        }
+
+        model.disableBackgroundSafety()
+
+        let lock = NSLock()
+        nonisolated(unsafe) var fired = false
+        let id = UUID()
+        model._inFlight.withLock { dict in
+            dict[id] = {
+                lock.lock(); fired = true; lock.unlock()
+            }
+        }
+
+        NotificationCenter.default.post(
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        try? await Task.sleep(for: .milliseconds(50))
+
+        lock.lock(); let final = fired; lock.unlock()
+        #expect(final == false)
+    }
 #endif
