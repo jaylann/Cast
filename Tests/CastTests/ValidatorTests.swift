@@ -1,7 +1,6 @@
+@testable import Cast
 import Foundation
 import Testing
-
-@testable import Cast
 
 private func trimmed(_ value: String) -> String {
     value.trimmingCharacters(in: .whitespaces)
@@ -23,19 +22,16 @@ private struct ValidatedStruct: Castable, Encodable {
     @Validator(trimmed) var name: String = ""
     @Validator(clamped) var rating: Int = 0
     var plain: String = ""
-    init() {}
 }
 
 private struct MultiValidatorStruct: Castable, Encodable {
     @Validator(uppercased) var code: String = ""
     @Validator(stripPrefix) var trainNumber: String = ""
     var city: String = ""
-    init() {}
 }
 
 @Suite("Validator")
 struct ValidatorTests {
-
     @Test("Validator transform applied during Cast decode")
     func transformApplied() throws {
         let json = #"{"name": "  hello  ", "rating": 15, "plain": "unchanged"}"#
@@ -98,11 +94,11 @@ struct ValidatorTests {
     }
 
     @Test("Validator constraint readable via Mirror")
-    func mirrorReadable() {
+    func mirrorReadable() throws {
         let instance = ValidatedStruct()
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_name" }!
-        let wrapper = child.value as! Validator<String>
+        let child = try #require(mirror.children.first { $0.label == "_name" })
+        let wrapper = try #require(child.value as? Validator<String>)
         #expect(wrapper.transform("  spaces  ") == "spaces")
     }
 
@@ -125,5 +121,45 @@ struct ValidatorTests {
         let json = #"{"x": 42}"#
         let result = try ValidatorSupport.decode(Plain.self, from: Data(json.utf8))
         #expect(result.x == 42)
+    }
+
+    @Test("Validator transform fires through CastDecode (cast()'s decode path)")
+    func validatorIntegrationThroughCastDecode() throws {
+        let raw = #"{"name": "  hello  ", "rating": 250, "plain": "ok"}"#
+        let result: ValidatedStruct = try CastDecode.decode(
+            ValidatedStruct.self,
+            rawOutput: raw,
+            config: CastConfiguration()
+        )
+        #expect(result.name == "hello")
+        #expect(result.rating == 10)
+        #expect(result.plain == "ok")
+    }
+
+    @Test("CastDecode honors repairTruncatedJSON=true")
+    func castDecodeRepairsTruncated() throws {
+        let raw = #"{"name": "x", "rating": 5, "plain": "ok""#
+        var config = CastConfiguration()
+        config.repairTruncatedJSON = true
+        let result: ValidatedStruct = try CastDecode.decode(
+            ValidatedStruct.self,
+            rawOutput: raw,
+            config: config
+        )
+        #expect(result.name == "x")
+    }
+
+    @Test("CastDecode without repair throws on truncated JSON")
+    func castDecodeRepairOffThrows() {
+        let raw = #"{"name": "x", "rating": 5, "plain": "ok""#
+        var config = CastConfiguration()
+        config.repairTruncatedJSON = false
+        #expect(throws: CastError.self) {
+            let _: ValidatedStruct = try CastDecode.decode(
+                ValidatedStruct.self,
+                rawOutput: raw,
+                config: config
+            )
+        }
     }
 }

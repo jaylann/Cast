@@ -185,7 +185,7 @@ public extension CastModel {
 /// `catch` block recover the last bytes accumulated inside the perform
 /// closure (which runs on a different actor) so they can ride along on
 /// `CastError.cancelled(partialOutput:)`.
-private final class StreamBufferHolder: @unchecked Sendable {
+final class StreamBufferHolder: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = ""
 
@@ -202,7 +202,7 @@ private final class StreamBufferHolder: @unchecked Sendable {
     }
 }
 
-private func decodePartial<T: Castable>(
+func decodePartial<T: Castable>(
     _: T.Type,
     from buffer: String,
     tokenCount: Int,
@@ -231,7 +231,7 @@ private func decodePartial<T: Castable>(
     return PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount)
 }
 
-private func yieldTerminal<T: Castable>(
+func yieldTerminal<T: Castable>(
     _: T.Type,
     buffer: String,
     tokenCount: Int,

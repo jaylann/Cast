@@ -35,3 +35,206 @@ func castStreamProducesPartialsAndTerminal() async throws {
     #expect(final.value.title == direct.title)
     #expect(final.value.year == direct.year)
 }
+
+@Suite("castStream non-Metal seam")
+struct CastStreamSeamTests {
+    @Test("decodePartial returns nil for unrepairable buffer")
+    func decodePartialReturnsNilForUnrepairableBuffer() {
+        // "not even close" is a non-JSON string with no opening brace —
+        // JSONRepair.repair returns .unrecoverable, so decodePartial yields nil.
+        let snapshot = decodePartial(
+            StreamMovie.self,
+            from: "not even close",
+            tokenCount: 1,
+            maxTokens: 100,
+            minProgress: 0
+        )
+        #expect(snapshot == nil)
+    }
+
+    @Test("decodePartial decodes valid partial JSON")
+    func decodePartialDecodesValidPartialJSON() throws {
+        let snapshot = decodePartial(
+            StreamMovie.self,
+            from: "{\"title\": \"Inception\"",
+            tokenCount: 5,
+            maxTokens: 100,
+            minProgress: 0
+        )
+        let value = try #require(snapshot)
+        #expect(value.value.title == "Inception")
+        #expect(value.value.year == nil)
+    }
+
+    @Test("decodePartial reports monotonic progress across calls")
+    func decodePartialMonotonicProgress() throws {
+        let buffer = "{\"title\": \"Inception\""
+        var minProgress = 0.0
+        var observed: [Double] = []
+
+        for tokens in [10, 30, 30, 40] {
+            let snapshot = decodePartial(
+                StreamMovie.self,
+                from: buffer,
+                tokenCount: tokens,
+                maxTokens: 100,
+                minProgress: minProgress
+            )
+            let value = try #require(snapshot)
+            observed.append(value.progress)
+            minProgress = value.progress
+        }
+
+        for window in zip(observed, observed.dropFirst()) {
+            #expect(window.0 <= window.1)
+        }
+    }
+
+    @Test("decodePartial clamps progress at 1.0")
+    func decodePartialProgressClampedToOne() throws {
+        let snapshot = decodePartial(
+            StreamMovie.self,
+            from: "{\"title\": \"Inception\"",
+            tokenCount: 200,
+            maxTokens: 100,
+            minProgress: 0
+        )
+        let value = try #require(snapshot)
+        #expect(value.progress == 1.0)
+    }
+
+    @Test("StreamBufferHolder snapshot is nil when empty")
+    func streamBufferHolderEmptyReturnsNil() {
+        let holder = StreamBufferHolder()
+        #expect(holder.snapshot() == nil)
+    }
+
+    @Test("StreamBufferHolder round-trips set + snapshot")
+    func streamBufferHolderRoundTrips() {
+        let holder = StreamBufferHolder()
+        holder.set("hello")
+        #expect(holder.snapshot() == "hello")
+    }
+
+    @Test("StreamBufferHolder concurrent sets converge without crash")
+    func streamBufferHolderConcurrentSetsConverge() async {
+        let holder = StreamBufferHolder()
+        let candidates = (0 ..< 10).map { "value-\($0)" }
+
+        await withTaskGroup(of: Void.self) { group in
+            for candidate in candidates {
+                group.addTask {
+                    holder.set(candidate)
+                }
+            }
+        }
+
+        let final = holder.snapshot()
+        #expect(final != nil)
+        #expect(candidates.contains(final ?? ""))
+    }
+
+    @Test("yieldTerminal repairs and yields one PartialResult")
+    func yieldTerminalRepairsAndYields() async throws {
+        var streamContinuation: AsyncThrowingStream<PartialResult<StreamMovie>, Error>.Continuation!
+        let stream = AsyncThrowingStream<PartialResult<StreamMovie>, Error> { continuation in
+            streamContinuation = continuation
+        }
+
+        var config = CastConfiguration()
+        config.repairTruncatedJSON = true
+
+        try yieldTerminal(
+            StreamMovie.self,
+            buffer: "{\"title\": \"Inception\", \"year\": 2010",
+            tokenCount: 50,
+            maxTokens: 100,
+            minProgress: 0,
+            config: config,
+            continuation: streamContinuation
+        )
+        streamContinuation.finish()
+
+        var collected: [PartialResult<StreamMovie>] = []
+        for try await partial in stream {
+            collected.append(partial)
+        }
+        #expect(collected.count == 1)
+        let only = try #require(collected.first)
+        #expect(only.value.title == "Inception")
+        #expect(only.value.year == 2010)
+    }
+
+    @Test("yieldTerminal throws decodingFailed when repair is off")
+    func yieldTerminalThrowsOnRepairFailure() {
+        var streamContinuation: AsyncThrowingStream<PartialResult<StreamMovie>, Error>.Continuation!
+        _ = AsyncThrowingStream<PartialResult<StreamMovie>, Error> { continuation in
+            streamContinuation = continuation
+        }
+
+        var config = CastConfiguration()
+        config.repairTruncatedJSON = false
+
+        #expect(throws: CastError.self) {
+            try yieldTerminal(
+                StreamMovie.self,
+                buffer: "{\"title\": \"Inception\", \"year\": 2010",
+                tokenCount: 50,
+                maxTokens: 100,
+                minProgress: 0,
+                config: config,
+                continuation: streamContinuation
+            )
+        }
+    }
+
+    @Test("yieldTerminal throws repairFailed on unrecoverable buffer")
+    func yieldTerminalThrowsRepairFailedOnUnrecoverable() {
+        var streamContinuation: AsyncThrowingStream<PartialResult<StreamMovie>, Error>.Continuation!
+        _ = AsyncThrowingStream<PartialResult<StreamMovie>, Error> { continuation in
+            streamContinuation = continuation
+        }
+
+        var config = CastConfiguration()
+        config.repairTruncatedJSON = true
+
+        #expect {
+            try yieldTerminal(
+                StreamMovie.self,
+                buffer: "not even close",
+                tokenCount: 50,
+                maxTokens: 100,
+                minProgress: 0,
+                config: config,
+                continuation: streamContinuation
+            )
+        } throws: { error in
+            guard let castError = error as? CastError,
+                  case .repairFailed = castError
+            else {
+                return false
+            }
+            return true
+        }
+    }
+
+    @Test("AsyncThrowingStream bufferingNewest(1) keeps only the latest yield")
+    func bufferingNewestOneDropsStale() async throws {
+        let stream = AsyncThrowingStream<Int, Error>(
+            bufferingPolicy: .bufferingNewest(1)
+        ) { continuation in
+            for value in 1 ... 5 {
+                continuation.yield(value)
+            }
+            continuation.finish()
+        }
+
+        var collected: [Int] = []
+        for try await value in stream {
+            collected.append(value)
+        }
+
+        #expect(collected.count == 1)
+        #expect(collected.first == 5)
+    }
+}

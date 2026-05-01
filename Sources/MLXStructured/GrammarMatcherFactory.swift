@@ -1,14 +1,20 @@
 import Hub
 import MLXLMCommon
 
+// Modifications: added public memberwise init for test instantiation by Justin Lanfermann, 2026.
 public struct TokenizerArtifacts: Sendable {
     public let vocab: [String]
     public let vocabType: Int32
     public let stopTokenIds: [Int32]
+
+    public init(vocab: [String], vocabType: Int32, stopTokenIds: [Int32]) {
+        self.vocab = vocab
+        self.vocabType = vocabType
+        self.stopTokenIds = stopTokenIds
+    }
 }
 
 public extension GrammarMaskedLogitProcessor {
-
     static func loadTokenizerArtifacts(
         hub: HubApi = .shared,
         configuration: ModelConfiguration
@@ -71,7 +77,8 @@ public extension GrammarMaskedLogitProcessor {
         }
 
         var stopTokenIds: [Int32] = configuration.extraEOSTokens.compactMap(vocab.firstIndex).map(Int32.init)
-        if let tokenizerConfig, let eosToken = tokenizerConfig.eosToken.string(), let eosTokenId = vocab.firstIndex(of: eosToken) {
+        if let tokenizerConfig, let eosToken = tokenizerConfig.eosToken.string(),
+           let eosTokenId = vocab.firstIndex(of: eosToken) {
             stopTokenIds.append(Int32(eosTokenId))
         }
 

@@ -83,6 +83,8 @@ let package = Package(
             name: "CastTests",
             dependencies: [
                 "Cast",
+                "MLXStructured",
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "JSONSchema", package: "swift-json-schema"),
                 .product(name: "Collections", package: "swift-collections")
             ]
