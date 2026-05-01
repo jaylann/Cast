@@ -1,11 +1,9 @@
+@testable import CastMacros
 import SwiftSyntaxMacrosTestSupport
 import Testing
 
-@testable import CastMacros
-
 @Suite("CastableMacro Diagnostics")
 struct CastDiagnosticTests {
-
     @Test("@Castable on class emits requiresStruct")
     func requiresStruct() {
         assertMacroExpansion(
@@ -17,7 +15,7 @@ struct CastDiagnosticTests {
             class Bad {}
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.requiresStruct.message, line: 1, column: 1),
+                DiagnosticSpec(message: CastableDiagnostic.requiresStruct.message, line: 1, column: 1)
             ],
             macros: testMacros
         )
@@ -38,7 +36,7 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.rangeOnString.message, line: 3, column: 5),
+                DiagnosticSpec(message: CastableDiagnostic.rangeOnString.message, line: 3, column: 5)
             ],
             macros: testMacros
         )
@@ -59,7 +57,7 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.lengthOnNumeric.message, line: 3, column: 5),
+                DiagnosticSpec(message: CastableDiagnostic.lengthOnNumeric.message, line: 3, column: 5)
             ],
             macros: testMacros
         )
@@ -80,7 +78,7 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.countOnNonArray.message, line: 3, column: 5),
+                DiagnosticSpec(message: CastableDiagnostic.countOnNonArray.message, line: 3, column: 5)
             ],
             macros: testMacros
         )
@@ -101,7 +99,7 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.invertedRange.message, line: 3, column: 5),
+                DiagnosticSpec(message: CastableDiagnostic.invertedRange.message, line: 3, column: 5)
             ],
             macros: testMacros
         )
@@ -122,7 +120,7 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.conflictingLengths.message, line: 3, column: 21),
+                DiagnosticSpec(message: CastableDiagnostic.conflictingLengths.message, line: 3, column: 21)
             ],
             macros: testMacros
         )
@@ -143,7 +141,7 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.patternOnNonString.message, line: 3, column: 5),
+                DiagnosticSpec(message: CastableDiagnostic.patternOnNonString.message, line: 3, column: 5)
             ],
             macros: testMacros
         )
@@ -164,7 +162,47 @@ struct CastDiagnosticTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: CastableDiagnostic.precisionOnNonFloat.message, line: 3, column: 5),
+                DiagnosticSpec(message: CastableDiagnostic.precisionOnNonFloat.message, line: 3, column: 5)
+            ],
+            macros: testMacros
+        )
+    }
+
+    @Test("Foundation Date field emits unknownNonPrimitiveType warning but expansion still succeeds")
+    func unknownFoundationType() {
+        let warning = CastableDiagnostic.unknownNonPrimitiveType(typeName: "Date")
+        assertMacroExpansion(
+            """
+            @Castable
+            struct Event {
+                var when: Date
+            }
+            """,
+            expandedSource: """
+            struct Event {
+                var when: Date
+
+                static let castSchema: JSONSchema = .object(
+                    properties: OrderedDictionary(dictionaryLiteral:
+                        ("when", Date.castSchema)
+                    ),
+                    required: ["when"],
+                    additionalProperties: .boolean(false)
+                )
+
+                init() {
+                }
+
+                struct PartiallyGenerated: Sendable, Decodable {
+                    var when: Date.PartiallyGenerated?
+                }
+            }
+
+            extension Event: Castable, Decodable {
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(message: warning.message, line: 3, column: 5, severity: .warning)
             ],
             macros: testMacros
         )

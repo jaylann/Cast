@@ -25,6 +25,8 @@ public extension CastModel {
     ///   on `Task.cancel()`, ``CastError/repairFailed(rawOutput:reason:)``
     ///   when partial output cannot be repaired, ``CastError/decodingFailed(rawOutput:error:)``
     ///   when (possibly repaired) JSON does not decode into `T`.
+    /// - SeeAlso: ``CastModel/castStream(_:as:system:config:)`` for the
+    ///   streaming variant that yields ``PartialResult`` snapshots as fields fill in.
     func cast<T: Decodable & Sendable>(
         _ prompt: String,
         as type: T.Type = T.self,

@@ -24,12 +24,17 @@ extension CastableMacro: MemberMacro {
         for (diagnostic, propNode) in diagnostics {
             context.diagnose(Diagnostic(node: propNode, message: diagnostic))
         }
-        guard diagnostics.isEmpty else { return [] }
+        // Warnings (e.g. unknown non-primitive field types) inform the user but
+        // must not block expansion — the synthesized members are still useful
+        // and the warning flags the call-site for follow-up.
+        let hasError = diagnostics.contains { $0.0.severity == .error }
+        guard !hasError else { return [] }
 
         let schemaDecl = generateSchemaDecl(properties: properties)
         let initDecl = generateInitDecl(properties: properties)
+        let partialDecl = generatePartiallyGeneratedDecl(properties: properties)
 
-        return [schemaDecl, initDecl]
+        return [schemaDecl, initDecl, partialDecl]
     }
 }
 
@@ -161,6 +166,19 @@ private let floatTypes: Set<String> = ["Double", "Float"]
 private let numericTypes: Set<String> = integerTypes.union(floatTypes)
 private let boolTypes: Set<String> = ["Bool"]
 
+/// Foundation value types developers commonly reach for that are *not*
+/// primitives in Cast's model. They will be projected as
+/// `<TypeName>.PartiallyGenerated?` and break compilation unless the
+/// consumer adds that conformance manually. Warn loudly at the call site.
+private let suspectFoundationTypes: Set<String> = [
+    "Date",
+    "URL",
+    "UUID",
+    "Data",
+    "Decimal",
+    "TimeInterval"
+]
+
 private func validateProperties(_ properties: [PropertyInfo]) -> [(CastableDiagnostic, Syntax)] {
     var diagnostics: [(CastableDiagnostic, Syntax)] = []
 
@@ -221,9 +239,45 @@ private func validateProperties(_ properties: [PropertyInfo]) -> [(CastableDiagn
                 diagnostics.append((.conflictingLengths, node))
             }
         }
+
+        if let warning = unknownTypeWarning(for: prop) {
+            diagnostics.append(warning)
+        }
     }
 
     return diagnostics
+}
+
+/// Strip a trailing `?` from a type name. Array element types come through
+/// `parseType` as raw text, so `[String?]` yields `"String?"` for the element
+/// and the downstream lookups (primitive set, partial projection, schema
+/// generation) all need the unwrapped form.
+private func nonOptionalTypeName(_ typeName: String) -> String {
+    let trimmed = typeName.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.hasSuffix("?") else { return trimmed }
+    return String(trimmed.dropLast())
+}
+
+/// Drop module / namespace prefixes from a dotted type name so the suspect
+/// Foundation lookup matches `Foundation.Date` and `SwiftFoundation.Date` the
+/// same way it matches a bare `Date`.
+private func baseIdentifier(_ typeName: String) -> String {
+    let trimmed = nonOptionalTypeName(typeName)
+    return trimmed.split(separator: ".").last.map(String.init) ?? trimmed
+}
+
+/// Emit a warning when the field's declared type is a known-suspect Foundation
+/// value type (`Date`, `URL`, `UUID`, …) so the consumer is told *at the call
+/// site* that the synthesized `PartiallyGenerated` will reference
+/// `<TypeName>.PartiallyGenerated`. We deliberately do *not* warn for every
+/// non-primitive (which would flood the build for legitimate nested `@Castable`
+/// structs we can't see from inside the macro) — only for the Foundation types
+/// users most often try first.
+private func unknownTypeWarning(for prop: PropertyInfo) -> (CastableDiagnostic, Syntax)? {
+    let raw = prop.isArray ? (prop.arrayElementType ?? "") : prop.typeName
+    let candidate = baseIdentifier(raw)
+    guard suspectFoundationTypes.contains(candidate) else { return nil }
+    return (.unknownNonPrimitiveType(typeName: candidate), prop.node)
 }
 
 private func parseRangeBounds(_ args: [String]) -> (lower: Double, upper: Double)? {
@@ -276,6 +330,57 @@ private func generateSchemaDecl(properties: [PropertyInfo]) -> DeclSyntax {
 private func generateInitDecl(properties _: [PropertyInfo]) -> DeclSyntax {
     """
     init() {
+    }
+    """
+}
+
+// MARK: - PartiallyGenerated Synthesis
+
+/// Project a property's type onto its `PartiallyGenerated` form: known
+/// primitives keep their own type, everything else is treated as a nested
+/// `Castable` and routed through `.PartiallyGenerated`. Arrays carry the
+/// projection through to their element type. The whole field is then made
+/// Optional regardless of whether it was Optional originally — partial
+/// snapshots have no notion of "required".
+private func partialFieldType(for prop: PropertyInfo) -> String {
+    if prop.isArray {
+        let element = nonOptionalTypeName(prop.arrayElementType ?? "String")
+        return "[\(partialElementType(element))]?"
+    }
+    return "\(partialBaseType(prop.typeName))?"
+}
+
+private func partialBaseType(_ typeName: String) -> String {
+    let baseTypeName = nonOptionalTypeName(typeName)
+    if stringTypes.contains(baseTypeName) || numericTypes.contains(baseTypeName) || boolTypes.contains(baseTypeName) {
+        return baseTypeName
+    }
+    return "\(baseTypeName).PartiallyGenerated"
+}
+
+private func partialElementType(_ typeName: String) -> String {
+    let baseTypeName = nonOptionalTypeName(typeName)
+    if stringTypes.contains(baseTypeName) || numericTypes.contains(baseTypeName) || boolTypes.contains(baseTypeName) {
+        return baseTypeName
+    }
+    return "\(baseTypeName).PartiallyGenerated"
+}
+
+private func generatePartiallyGeneratedDecl(properties: [PropertyInfo]) -> DeclSyntax {
+    let fields = properties
+        .map { "var \($0.name): \(partialFieldType(for: $0))" }
+        .joined(separator: "\n        ")
+
+    if properties.isEmpty {
+        return """
+        struct PartiallyGenerated: Sendable, Decodable {
+        }
+        """
+    }
+
+    return """
+    struct PartiallyGenerated: Sendable, Decodable {
+        \(raw: fields)
     }
     """
 }
@@ -333,7 +438,7 @@ private func schemaExpression(for prop: PropertyInfo) -> String {
     }
 
     if prop.isArray {
-        let elementSchema = elementSchemaExpression(prop.arrayElementType ?? "String")
+        let elementSchema = elementSchemaExpression(nonOptionalTypeName(prop.arrayElementType ?? "String"))
         let descPart = descriptionArg.map { "description: \($0), " } ?? ""
         let itemsPart = "items: \(elementSchema)"
         var extras: [String] = []

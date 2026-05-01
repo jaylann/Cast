@@ -49,6 +49,7 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 - <doc:ValidatorAndExcluding>
 - <doc:PrepareWarmup>
 - <doc:Cancellation>
+- <doc:Streaming>
 - <doc:CallerManagedLoading>
 - <doc:ErrorHandling>
 - <doc:ChatTemplates>

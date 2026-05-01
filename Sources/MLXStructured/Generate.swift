@@ -4,14 +4,15 @@
 //
 //  Created by Ivan Petrukha on 27.09.2025.
 //
+// Modifications: add Grammar-input chunk stream by Justin Lanfermann, 2026
 
 import Foundation
 import JSONSchema
-import MLXLMCommon
 import MLX
+import MLXLMCommon
 
 #if canImport(FoundationModels)
-import FoundationModels
+    import FoundationModels
 #endif
 
 public func generate(
@@ -24,8 +25,80 @@ public func generate(
     let sampler = parameters.sampler()
     let processor = try await GrammarMaskedLogitProcessor.from(configuration: context.configuration, grammar: grammar)
     let iterator = try TokenIterator(input: input, model: context.model, processor: processor, sampler: sampler)
-    let result = generate(input: input, context: context, iterator: iterator, didGenerate: didGenerate)
-    return result
+    return generate(input: input, context: context, iterator: iterator, didGenerate: didGenerate)
+}
+
+/// One incremental yield from ``generateStream(input:parameters:context:grammar:)``.
+public struct GrammarChunk: Sendable {
+    public let chunk: String
+    /// Approximate running token count. Derived from chunk arrivals during
+    /// generation (one token per chunk under MLXLMCommon's current pipeline)
+    /// and corrected to the authoritative count once `.info` lands at the
+    /// tail of the stream — that final correction is delivered as an empty
+    /// `chunk: ""` yield so consumers see the accurate total.
+    public let totalTokens: Int
+
+    public init(chunk: String, totalTokens: Int) {
+        self.chunk = chunk
+        self.totalTokens = totalTokens
+    }
+}
+
+/// Drive a constrained generation and stream decoded text chunks as they arrive,
+/// alongside the running token count. The stream finishes when the model stops
+/// (EOS, max tokens, or downstream cancellation of the consuming task).
+///
+/// `GrammarChunk.totalTokens` is approximate during generation (chunk-counted,
+/// not real-token-counted). The final yield carries the authoritative count
+/// from `.info` — typically as an empty `chunk: ""` correction.
+public func generateStream(
+    input: LMInput,
+    parameters: GenerateParameters = GenerateParameters(),
+    context: ModelContext,
+    grammar: Grammar
+) async throws -> AsyncThrowingStream<GrammarChunk, Error> {
+    let sampler = parameters.sampler()
+    let processor = try await GrammarMaskedLogitProcessor.from(
+        configuration: context.configuration,
+        grammar: grammar
+    )
+    let iterator = try TokenIterator(
+        input: input,
+        model: context.model,
+        processor: processor,
+        sampler: sampler
+    )
+    let upstream = generate(input: input, context: context, iterator: iterator)
+
+    return AsyncThrowingStream { continuation in
+        let task = Task {
+            var totalTokens = 0
+            for await generation in upstream {
+                if Task.isCancelled { break }
+                switch generation {
+                case let .chunk(text):
+                    // Approximate token count by chunk count — `Generation.chunk`
+                    // is one decoded token's text per yield in MLXLMCommon's
+                    // current pipeline. Exact counts come via `.info` at the
+                    // tail; downstream consumers use this only for `progress`.
+                    totalTokens += 1
+                    continuation.yield(GrammarChunk(chunk: text, totalTokens: totalTokens))
+                case let .info(info):
+                    // `.info` arrives at the tail with the authoritative token
+                    // count. Yield an empty-text correction so consumers see
+                    // the accurate total instead of the chunk-counted estimate.
+                    totalTokens = info.generationTokenCount
+                    continuation.yield(GrammarChunk(chunk: "", totalTokens: totalTokens))
+                case .toolCall:
+                    continue
+                }
+            }
+            continuation.finish()
+        }
+        continuation.onTermination = { _ in
+            task.cancel()
+        }
+    }
 }
 
 public func generate<Content: Decodable>(
@@ -33,7 +106,7 @@ public func generate<Content: Decodable>(
     parameters: GenerateParameters = GenerateParameters(),
     context: ModelContext,
     schema: JSONSchema,
-    generating: Content.Type,
+    generating _: Content.Type,
     indent: Int? = nil,
     didGenerate: ([Int]) -> GenerateDisposition = { _ in .more }
 ) async throws -> (GenerateResult, Content) {
@@ -47,56 +120,61 @@ public func generate<Content: Decodable>(
 }
 
 #if compiler(>=6.2)
-@available(macOS 26.0, iOS 26.0, *)
-public func generate<Content: Generable>(
-    input: LMInput,
-    parameters: GenerateParameters = GenerateParameters(),
-    context: ModelContext,
-    generating: Content.Type,
-    indent: Int? = nil,
-    didGenerate: ([Int]) -> GenerateDisposition = { _ in .more }
-) async throws -> (GenerateResult, Content) {
-    let sampler = parameters.sampler()
-    let grammar = try Grammar.generable(Content.self, indent: indent)
-    let processor = try await GrammarMaskedLogitProcessor.from(configuration: context.configuration, grammar: grammar)
-    let iterator = try TokenIterator(input: input, model: context.model, processor: processor, sampler: sampler)
-    let result = generate(input: input, context: context, iterator: iterator, didGenerate: didGenerate)
-    let content = try Content(GeneratedContent(json: result.output))
-    return (result, content)
-}
+    @available(macOS 26.0, iOS 26.0, *)
+    public func generate<Content: Generable>(
+        input: LMInput,
+        parameters: GenerateParameters = GenerateParameters(),
+        context: ModelContext,
+        generating _: Content.Type,
+        indent: Int? = nil,
+        didGenerate: ([Int]) -> GenerateDisposition = { _ in .more }
+    ) async throws -> (GenerateResult, Content) {
+        let sampler = parameters.sampler()
+        let grammar = try Grammar.generable(Content.self, indent: indent)
+        let processor = try await GrammarMaskedLogitProcessor.from(
+            configuration: context.configuration,
+            grammar: grammar
+        )
+        let iterator = try TokenIterator(input: input, model: context.model, processor: processor, sampler: sampler)
+        let result = generate(input: input, context: context, iterator: iterator, didGenerate: didGenerate)
+        let content = try Content(GeneratedContent(json: result.output))
+        return (result, content)
+    }
 
-@available(macOS 26.0, iOS 26.0, *)
-public func generate<Content: Generable>(
-    input: LMInput,
-    parameters: GenerateParameters = GenerateParameters(),
-    context: ModelContext,
-    generating: Content.Type,
-    indent: Int? = nil
-) async throws -> AsyncStream<Content.PartiallyGenerated> {
-    let sampler = parameters.sampler()
-    let grammar = try Grammar.generable(Content.self, indent: indent)
-    let processor = try await GrammarMaskedLogitProcessor.from(configuration: context.configuration, grammar: grammar)
-    let iterator = try TokenIterator(input: input, model: context.model, processor: processor, sampler: sampler)
-    let stream = generate(input: input, context: context, iterator: iterator)
-    return AsyncStream { continuation in
-        
-        let task = Task {
-            var output = ""
-            for await generation in stream {
-                if let chunk = generation.chunk {
-                    output.append(chunk)
-                    let generatedContent = try GeneratedContent(json: output)
-                    let partiallyGenerated = try Content.PartiallyGenerated(generatedContent)
-                    continuation.yield(partiallyGenerated)
+    @available(macOS 26.0, iOS 26.0, *)
+    public func generate<Content: Generable>(
+        input: LMInput,
+        parameters: GenerateParameters = GenerateParameters(),
+        context: ModelContext,
+        generating _: Content.Type,
+        indent: Int? = nil
+    ) async throws -> AsyncStream<Content.PartiallyGenerated> {
+        let sampler = parameters.sampler()
+        let grammar = try Grammar.generable(Content.self, indent: indent)
+        let processor = try await GrammarMaskedLogitProcessor.from(
+            configuration: context.configuration,
+            grammar: grammar
+        )
+        let iterator = try TokenIterator(input: input, model: context.model, processor: processor, sampler: sampler)
+        let stream = generate(input: input, context: context, iterator: iterator)
+        return AsyncStream { continuation in
+            let task = Task {
+                var output = ""
+                for await generation in stream {
+                    if let chunk = generation.chunk {
+                        output.append(chunk)
+                        let generatedContent = try GeneratedContent(json: output)
+                        let partiallyGenerated = try Content.PartiallyGenerated(generatedContent)
+                        continuation.yield(partiallyGenerated)
+                    }
                 }
+
+                continuation.finish()
             }
-            
-            continuation.finish()
-        }
-        
-        continuation.onTermination = { _ in
-            task.cancel()
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
     }
-}
 #endif
