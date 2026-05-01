@@ -101,9 +101,9 @@ templates are exercised in `Tests/CastTests/ChatTemplateTests.swift`.
 
 ## Benchmarks
 
-Cast ships a built-in benchmarking utility, [`CastBench`](https://jaylann.github.io/Cast/documentation/cast/castbench),
-for measuring tok/s, latency, grammar-masking overhead, and (optionally)
-constrained-vs-unconstrained validity rates on your own prompts and types.
+Cast ships a built-in benchmarking utility, `CastBench`, for measuring tok/s,
+latency, grammar-masking overhead, and (optionally) constrained-vs-unconstrained
+validity rates on your own prompts and types.
 
 ```swift
 let bench = CastBench(model)
@@ -111,8 +111,9 @@ let result = try await bench.run(type: Person.self, prompt: "...", iterations: 5
 print(result.formatted(as: .markdown))
 ```
 
-See `Sources/Cast/Bench/CastBench.swift` and the [DocC article](https://jaylann.github.io/Cast/documentation/cast/castbench-article)
-for output formats and the comparison harness.
+See `Sources/Cast/Bench/CastBench.swift` for the API and output formats. Full
+reference is published in the [Cast DocC site](https://jaylann.github.io/Cast/documentation/cast)
+under *Examples → CastBench*.
 
 ## What you can put in a `@Castable` type
 

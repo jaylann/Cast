@@ -40,3 +40,8 @@ jobs:
             echo "::error::Sources/Cast/Cast.docc/Examples/ is out of sync with Examples/Sources/. Run ./scripts/generate-example-docs.sh and commit the result."
             exit 1
           fi
+          if [ -n "$(git status --porcelain Sources/Cast/Cast.docc/Examples/)" ]; then
+            echo "::error::Sources/Cast/Cast.docc/Examples/ contains untracked files after regeneration. Run ./scripts/generate-example-docs.sh and commit the new article(s)."
+            git status --porcelain Sources/Cast/Cast.docc/Examples/
+            exit 1
+          fi

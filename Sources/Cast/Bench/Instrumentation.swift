@@ -78,8 +78,6 @@ enum BenchmarkInstrumentation {
         do {
             schema = try SchemaGenerator.schema(for: type)
             annotations = try SchemaGenerator.annotations(for: type)
-        } catch let error as CastError {
-            throw error
         } catch {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
