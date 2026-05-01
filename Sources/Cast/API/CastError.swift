@@ -22,7 +22,10 @@ public enum CastError: LocalizedError, Sendable {
     /// or `abortInFlight()`). `partialOutput` is the bytes generated up to
     /// the cancel point.
     case cancelled(partialOutput: String?)
-    /// A model source could not be resolved (e.g. missing bundle resource).
+    /// The requested model could not be located on disk. Currently thrown
+    /// for `.bundle` sources whose `resourceName` doesn't resolve in the
+    /// given `Bundle`. May also surface for invalid `.directory` URLs once
+    /// upfront-existence validation is added.
     case modelNotFound(String)
 
     public var errorDescription: String? {

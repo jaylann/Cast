@@ -87,10 +87,13 @@ public final class CastModel: Sendable {
     /// )
     ///
     /// // Corporate HF mirror
+    /// guard let endpoint = URL(string: "https://hf-mirror.corp.example.com") else {
+    ///     throw URLError(.badURL)
+    /// }
     /// let model = try await CastModel.load(
     ///     .customEndpoint(
     ///         id: "internal/llama-3.2-3b-4bit",
-    ///         endpoint: URL(string: "https://hf-mirror.corp.example.com")!,
+    ///         endpoint: endpoint,
     ///         revision: "v1.0"
     ///     )
     /// )
@@ -98,8 +101,10 @@ public final class CastModel: Sendable {
     ///
     /// - Parameters:
     ///   - source: Where to find the model.
-    ///   - progress: Optional download/load progress callback (only meaningful
-    ///     for `.huggingFace` and `.customEndpoint`).
+    ///   - progress: Optional download/load progress callback. **No-op** for
+    ///     `.directory` and `.bundle` sources — they have nothing to download,
+    ///     so the callback never fires. Only meaningful for `.huggingFace` and
+    ///     `.customEndpoint`.
     public static func load(
         _ source: ModelSource,
         progress: (@Sendable (Progress) -> Void)? = nil

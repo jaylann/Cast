@@ -1,5 +1,6 @@
 @testable import Cast
 import Foundation
+@testable import Hub
 import MLXLMCommon
 import Testing
 
@@ -105,5 +106,35 @@ struct ModelSourceTests {
             return
         }
         #expect(revision == "main")
+    }
+
+    @Test("customEndpoint propagates endpoint and downloadBase into HubApi")
+    func customEndpointPropagatesIntoHub() throws {
+        let endpoint = try #require(URL(string: "https://hf-mirror.corp.example.com"))
+        let downloadBase = URL(fileURLWithPath: "/tmp/cast-mirror-cache", isDirectory: true)
+        let source = ModelSource.customEndpoint(
+            id: "internal/x",
+            endpoint: endpoint,
+            downloadBase: downloadBase
+        )
+        let (_, hub) = try source.resolved()
+        // Endpoint URL gets normalized (scheme://host) by HubApi's init.
+        #expect(hub.endpoint.contains("hf-mirror.corp.example.com"))
+        #expect(hub.downloadBase == downloadBase)
+    }
+
+    @Test("customEndpoint hub differs from HubApi.shared used by other sources")
+    func customEndpointHubIsNotShared() throws {
+        let endpoint = try #require(URL(string: "https://hf-mirror.corp.example.com"))
+        let custom = ModelSource.customEndpoint(id: "internal/x", endpoint: endpoint)
+        let huggingFace = ModelSource.huggingFace(id: "owner/repo")
+
+        let (_, customHub) = try custom.resolved()
+        let (_, sharedHub) = try huggingFace.resolved()
+
+        // `.huggingFace` must reuse the shared instance; `.customEndpoint`
+        // must construct a fresh HubApi carrying the custom endpoint.
+        #expect(sharedHub.endpoint == HubApi.shared.endpoint)
+        #expect(customHub.endpoint != HubApi.shared.endpoint)
     }
 }
