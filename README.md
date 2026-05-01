@@ -282,6 +282,8 @@ If you already manage `ModelContainer` lifetime (e.g., shared across components)
 let model = CastModel(wrapping: existingContainer, configuration: existingConfig)
 ```
 
+For local directories, custom HF mirror endpoints, or app-bundled models, see `ModelSource`.
+
 ## Roadmap
 
 Open work:

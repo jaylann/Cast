@@ -52,6 +52,7 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 - <doc:Streaming>
 - <doc:SwiftUIDemo>
 - <doc:CallerManagedLoading>
+- <doc:CustomModelSource>
 - <doc:ErrorHandling>
 - <doc:ChatTemplates>
 - <doc:Smoketest>
