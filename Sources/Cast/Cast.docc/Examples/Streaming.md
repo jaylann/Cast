@@ -1,27 +1,16 @@
 # Streaming
 
-Watch fields fill in as the model writes them.
-
-`castStream(_:as:system:config:)` returns an `AsyncThrowingStream` of
-``PartialResult`` values. Each yield carries:
-
-- `value` — a `T.PartiallyGenerated` snapshot (all-Optional mirror of `T`)
-  decoded from the in-flight buffer once it can be repaired into valid JSON.
-- `progress` — monotonic `0...1` ratio against `CastConfiguration.maxTokens`.
-- `tokenCount` — running token count for the generation.
-
-The terminal yield always carries a fully-decoded value (validated against
-`T`'s required fields, not just the Optional mirror), matching the contract
-of `cast()`. The stream honors `Task.cancel()` (surfaced as
-`CastError.cancelled`) and `CastConfiguration.timeout`. Buffering is
-`bufferingNewest(1)` — slow consumers see only the latest snapshot, never an
-unbounded backlog.
+progressive partial-result yields from castStream(); each
+field appears as the model fills it in.
 
 ## Source
 
 Full source: [Examples/Sources/Streaming/main.swift](https://github.com/jaylann/Cast/blob/main/Examples/Sources/Streaming/main.swift)
 
 ```swift
+// What this shows: progressive partial-result yields from castStream(); each
+// field appears as the model fills it in.
+
 import Cast
 import Collections
 import Foundation

@@ -1,11 +1,6 @@
 # Extract
 
-extract(from:as:instruction:) pulls structured fields out of a block of
-unstructured text. It composes an extraction-optimized prompt (the source is
-wrapped in nonced delimiters and the model is told not to invent fields) and
-delegates to the same constrained-decoding path as cast(). Optional fields
-demonstrate the no-invention contract: a value missing in the source decodes
-to nil rather than being hallucinated.
+extract structured fields from a block of unstructured text via model.extract(from:as:instruction:).
 
 ## Source
 

@@ -1,12 +1,21 @@
 # Cast
 
+[![Tests](https://img.shields.io/github/actions/workflow/status/jaylann/Cast/test.yml?branch=stage&label=tests&logo=github)](https://github.com/jaylann/Cast/actions/workflows/test.yml)
+[![Swift 6](https://img.shields.io/badge/swift-6.0-orange?logo=swift)](https://swift.org)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%2014%20%7C%20iOS%2017-lightgrey)](#install)
+[![SwiftPM](https://img.shields.io/badge/SwiftPM-compatible-brightgreen)](#install)
+[![DocC](https://img.shields.io/badge/docs-DocC-blue)](https://jaylann.github.io/Cast/documentation/cast/)
+[![License](https://img.shields.io/github/license/jaylann/Cast)](LICENSE)
+
 Type-safe structured output from any local LLM on Apple Silicon. `Cast` runs on top of [MLX Swift](https://github.com/ml-explore/mlx-swift) and uses constrained decoding plus a Swift macro to guarantee the model returns JSON that decodes into the type you asked for.
 
 Think `as?` for LLMs.
 
 📚 **[API Documentation](https://jaylann.github.io/Cast/documentation/cast/)** — auto-generated from source via DocC.
 
-> **Status: pre-1.0.** Phases 0–2 (foundation, schema/wrappers, `@Castable` macro, tokenizer caching, `prepare`, `classify`) are shipped. Phase 3 in progress: timeouts/cancellation, JSON repair, iOS lifecycle, DocC are landed; streaming, benchmarks, per-model chat templates, and the demo app are still in flight — see [open issues](https://github.com/jaylann/Cast/issues).
+> **Status: pre-1.0.** Public API surface (`cast`, `castStream`, `extract`, `classify`, `prepare`, lifecycle, timeouts, JSON repair, `CastBench`, 5-family chat templates, DocC) is stable and tested. See the [open issues](https://github.com/jaylann/Cast/issues) for in-flight work.
+
+**Jump to:** [Install](#install) · [Quickstart](#quickstart) · [Comparison](#how-cast-compares) · [Models](#recommended-models) · [Benchmarks](#benchmarks) · [Generation modes](#generation-modes) · [Configuration](#configuration) · [Roadmap](#roadmap)
 
 ---
 
@@ -85,14 +94,26 @@ with Cast's grammar-constrained decoding. The first one is a good default.
 | `mlx-community/Qwen2.5-7B-Instruct-4bit` | Better quality on extraction / reasoning. ~5 GB. |
 | `mlx-community/Mistral-7B-Instruct-v0.3-4bit` | Strong instruction-following alternative. ~5 GB. |
 
-Avoid base / completion checkpoints. The grammar will keep the JSON
+Avoid base / completion checkpoints — the grammar will keep the JSON
 syntactically valid, but content quality drops sharply without instruct
-tuning. Per-model chat templates are tracked in [#37](https://github.com/jaylann/Cast/issues/37).
+tuning. Llama-3.2, Qwen-2.5, Mistral-v0.3, Phi-3.5, and Gemma-2 chat
+templates are exercised in `Tests/CastTests/ChatTemplateTests.swift`.
 
 ## Benchmarks
 
-Coming with [#38](https://github.com/jaylann/Cast/issues/38) (CastBench harness)
-and [#39](https://github.com/jaylann/Cast/issues/39) (overhead comparison).
+Cast ships a built-in benchmarking utility, `CastBench`, for measuring tok/s,
+latency, grammar-masking overhead, and (optionally) constrained-vs-unconstrained
+validity rates on your own prompts and types.
+
+```swift
+let bench = CastBench(model)
+let result = try await bench.run(type: Person.self, prompt: "...", iterations: 5)
+print(result.formatted(as: .markdown))
+```
+
+See `Sources/Cast/Bench/CastBench.swift` for the API and output formats. Full
+reference is published in the [Cast DocC site](https://jaylann.github.io/Cast/documentation/cast)
+under *Examples → CastBench*.
 
 ## What you can put in a `@Castable` type
 
@@ -139,11 +160,23 @@ let s: Sentiment = try await model.classify("Best burrito in town.")
 // Decoded into your type (recommended)
 let r: Recipe = try await model.cast("...")
 
+// Stream partial snapshots as the model fills in fields
+for try await partial in model.castStream("...", as: Recipe.self) {
+    print(partial.value.title ?? "(generating...)")
+}
+
+// Extract structured fields out of unstructured text
+let r2: Recipe = try await model.extract(
+    from: "...long article...",
+    as: Recipe.self,
+    instruction: "Extract the recipe."
+)
+
 // Raw JSON string with a generated schema
 let json: String = try await model.castJSON("...", schema: Recipe.self)
 
 // Decoded with an explicit JSONSchema (skip auto-schema generation)
-let r2: Recipe = try await model.cast("...", as: Recipe.self, schema: someSchema)
+let r3: Recipe = try await model.cast("...", as: Recipe.self, schema: someSchema)
 
 // Raw JSON with an explicit schema
 let json2: String = try await model.castJSON("...", schema: someSchema)
@@ -235,20 +268,17 @@ let model = CastModel(wrapping: existingContainer, configuration: existingConfig
 
 ## Roadmap
 
-Shipped in Phase 3:
-- Truncated JSON detection / repair ([#40](https://github.com/jaylann/Cast/issues/40))
-- Timeout & cancellation ([#41](https://github.com/jaylann/Cast/issues/41))
-- Background/foreground GPU lifecycle, opt-in ([#42](https://github.com/jaylann/Cast/issues/42))
-- DocC site ([#45](https://github.com/jaylann/Cast/issues/45))
+Open work:
+- Example iOS app with SwiftUI + streaming fields ([#44](https://github.com/jaylann/Cast/issues/44))
 
-Still open:
-- Streaming `castStream() → AsyncSequence<PartialResult<T>>` ([#35](https://github.com/jaylann/Cast/issues/35))
-- `extract()` extraction-optimized convenience ([#36](https://github.com/jaylann/Cast/issues/36))
-- Per-model chat templates (Llama / Qwen / Mistral) ([#37](https://github.com/jaylann/Cast/issues/37))
-- CastBench: tok/s, latency, grammar overhead ([#38](https://github.com/jaylann/Cast/issues/38), [#39](https://github.com/jaylann/Cast/issues/39))
-- Example iOS app — blocked on streaming ([#44](https://github.com/jaylann/Cast/issues/44))
+If you're migrating an existing project to `Cast` and hitting friction
+(Sendable/Decodable conformance, output quality, etc.), see `MIGRATION.md`.
 
-If you're migrating an existing project to `Cast` and hitting friction (Sendable/Decodable conformance, output quality, etc.), see `MIGRATION.md`.
+## Contributing
+
+Issues and PRs welcome. PRs target `stage` (the default branch); `main` is
+release-only. See `CONTRIBUTING.md` for label conventions and the release
+workflow.
 
 ## License
 

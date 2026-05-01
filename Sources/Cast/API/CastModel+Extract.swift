@@ -35,13 +35,14 @@ public extension CastModel {
         didGenerate: (@Sendable (Int) -> GenerateDisposition)? = nil
     ) async throws -> T {
         let schema: JSONSchema
+        let annotations: [String: FieldAnnotation]
         do {
             schema = try SchemaGenerator.schema(for: type)
+            annotations = try SchemaGenerator.annotations(for: type)
         } catch {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let annotations = (try? SchemaGenerator.annotations(for: type)) ?? [:]
         let built = PromptEngine.buildExtractionPrompt(
             text: text,
             instruction: instruction,

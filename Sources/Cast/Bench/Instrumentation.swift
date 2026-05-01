@@ -74,14 +74,13 @@ enum BenchmarkInstrumentation {
         // overhead numbers compare apples to apples. Surface schema-generation
         // failures as `CastError` for parity with `CastModel.cast(...)`.
         let schema: JSONSchema
+        let annotations: [String: FieldAnnotation]
         do {
             schema = try SchemaGenerator.schema(for: type)
-        } catch let error as CastError {
-            throw error
+            annotations = try SchemaGenerator.annotations(for: type)
         } catch {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
-        let annotations = (try? SchemaGenerator.annotations(for: type)) ?? [:]
         let built = PromptEngine.buildPrompt(
             userPrompt: prompt,
             schema: schema,
