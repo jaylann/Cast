@@ -48,7 +48,7 @@ public extension CastModel {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let built = PromptEngine.buildPrompt(
+        let built = try PromptEngine.buildPrompt(
             userPrompt: prompt,
             schema: schema,
             annotations: annotations,
@@ -85,7 +85,7 @@ public extension CastModel {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let built = PromptEngine.buildPrompt(
+        let built = try PromptEngine.buildPrompt(
             userPrompt: prompt,
             schema: schema,
             annotations: annotations,

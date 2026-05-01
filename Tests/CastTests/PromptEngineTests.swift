@@ -4,12 +4,12 @@ import Testing
 
 @Suite("PromptEngine")
 struct PromptEngineTests {
-    @Test func defaultSystemIncludesSchema() {
+    @Test func defaultSystemIncludesSchema() throws {
         let schema = JSONSchema.object(
             properties: ["name": .string(), "age": .integer()],
             required: ["name", "age"]
         )
-        let result = PromptEngine.buildPrompt(userPrompt: "Extract info", schema: schema)
+        let result = try PromptEngine.buildPrompt(userPrompt: "Extract info", schema: schema)
 
         #expect(result.system.contains("JSON Schema"))
         #expect(result.system.contains("name"))
@@ -17,9 +17,9 @@ struct PromptEngineTests {
         #expect(result.user == "Extract info")
     }
 
-    @Test func customSystemOverride() {
+    @Test func customSystemOverride() throws {
         let schema = JSONSchema.object()
-        let result = PromptEngine.buildPrompt(
+        let result = try PromptEngine.buildPrompt(
             userPrompt: "test",
             schema: schema,
             system: "Custom system prompt."
@@ -27,44 +27,44 @@ struct PromptEngineTests {
         #expect(result.system == "Custom system prompt.")
     }
 
-    @Test func descriptionAppearsInGuidance() {
+    @Test func descriptionAppearsInGuidance() throws {
         let schema = JSONSchema.object(properties: ["title": .string()], required: ["title"])
         let annotations: [String: FieldAnnotation] = [
             "title": FieldAnnotation(description: "The movie title exactly as written")
         ]
-        let result = PromptEngine.buildPrompt(userPrompt: "Extract", schema: schema, annotations: annotations)
+        let result = try PromptEngine.buildPrompt(userPrompt: "Extract", schema: schema, annotations: annotations)
 
         #expect(result.system.contains("The movie title exactly as written"))
         #expect(result.system.contains("Field guidance"))
     }
 
-    @Test func examplesAppearInGuidance() {
+    @Test func examplesAppearInGuidance() throws {
         let schema = JSONSchema.object(properties: ["summary": .string()], required: ["summary"])
         let annotations: [String: FieldAnnotation] = [
             "summary": FieldAnnotation(examples: ["Great pacing", "Weak third act"])
         ]
-        let result = PromptEngine.buildPrompt(userPrompt: "Summarize", schema: schema, annotations: annotations)
+        let result = try PromptEngine.buildPrompt(userPrompt: "Summarize", schema: schema, annotations: annotations)
 
         #expect(result.system.contains("Great pacing"))
         #expect(result.system.contains("Weak third act"))
     }
 
-    @Test func emptyAnnotationsNoGuidance() {
+    @Test func emptyAnnotationsNoGuidance() throws {
         let schema = JSONSchema.object(properties: ["x": .string()], required: ["x"])
-        let result = PromptEngine.buildPrompt(userPrompt: "test", schema: schema)
+        let result = try PromptEngine.buildPrompt(userPrompt: "test", schema: schema)
         #expect(!result.system.contains("Field guidance"))
     }
 
-    @Test func containsJSONInstruction() {
+    @Test func containsJSONInstruction() throws {
         let schema = JSONSchema.object()
-        let result = PromptEngine.buildPrompt(userPrompt: "test", schema: schema)
+        let result = try PromptEngine.buildPrompt(userPrompt: "test", schema: schema)
         #expect(result.system.contains("valid JSON"))
     }
 
-    @Test func extractionPromptWrapsTextInDelimiters() {
+    @Test func extractionPromptWrapsTextInDelimiters() throws {
         let schema = JSONSchema.object()
         let source = "Invoice #4242 — total due $19.99"
-        let result = PromptEngine.buildExtractionPrompt(
+        let result = try PromptEngine.buildExtractionPrompt(
             text: source,
             instruction: "Extract the invoice number and total.",
             schema: schema
@@ -91,11 +91,11 @@ struct PromptEngineTests {
         #expect(sourceRange.upperBound <= closeMatch.range.lowerBound)
     }
 
-    @Test func extractionDelimiterNonceIsPerCall() {
+    @Test func extractionDelimiterNonceIsPerCall() throws {
         let schema = JSONSchema.object()
         let pattern = #/<<<SOURCE-([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})>>>/#
-        let first = PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
-        let second = PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
+        let first = try PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
+        let second = try PromptEngine.buildExtractionPrompt(text: "x", instruction: "Extract.", schema: schema)
 
         guard
             let firstNonce = first.user.firstMatch(of: pattern)?.output.1,
@@ -107,10 +107,10 @@ struct PromptEngineTests {
         #expect(firstNonce != secondNonce)
     }
 
-    @Test func extractionPromptIncludesInstruction() {
+    @Test func extractionPromptIncludesInstruction() throws {
         let schema = JSONSchema.object()
         let instruction = "Extract the invoice number and total in USD."
-        let result = PromptEngine.buildExtractionPrompt(
+        let result = try PromptEngine.buildExtractionPrompt(
             text: "irrelevant",
             instruction: instruction,
             schema: schema
@@ -118,9 +118,9 @@ struct PromptEngineTests {
         #expect(result.user.contains(instruction))
     }
 
-    @Test func extractionPromptDiscouragesInvention() {
+    @Test func extractionPromptDiscouragesInvention() throws {
         let schema = JSONSchema.object()
-        let result = PromptEngine.buildExtractionPrompt(
+        let result = try PromptEngine.buildExtractionPrompt(
             text: "irrelevant",
             instruction: "Extract.",
             schema: schema
@@ -129,12 +129,12 @@ struct PromptEngineTests {
         #expect(result.system.contains("null"))
     }
 
-    @Test func extractionPromptIncludesSchema() {
+    @Test func extractionPromptIncludesSchema() throws {
         let schema = JSONSchema.object(
             properties: ["invoiceNumber": .string(), "totalUSD": .number()],
             required: ["invoiceNumber", "totalUSD"]
         )
-        let result = PromptEngine.buildExtractionPrompt(
+        let result = try PromptEngine.buildExtractionPrompt(
             text: "irrelevant",
             instruction: "Extract.",
             schema: schema
@@ -144,9 +144,9 @@ struct PromptEngineTests {
         #expect(result.system.contains("totalUSD"))
     }
 
-    @Test func extractionPromptCustomSystemOverride() {
+    @Test func extractionPromptCustomSystemOverride() throws {
         let schema = JSONSchema.object()
-        let result = PromptEngine.buildExtractionPrompt(
+        let result = try PromptEngine.buildExtractionPrompt(
             text: "irrelevant",
             instruction: "Extract.",
             schema: schema,
