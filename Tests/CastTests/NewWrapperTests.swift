@@ -1,10 +1,9 @@
+@testable import Cast
 import Foundation
 import JSONSchema
 import Testing
 
-@testable import Cast
-
-fileprivate struct NewWrappersStruct {
+private struct NewWrappersStruct {
     @Pattern("[a-z]+") var code: String = ""
     @Precision(2) var price: Double = 0.0
     @Count(3) var topPicks: [String] = []
@@ -12,59 +11,57 @@ fileprivate struct NewWrappersStruct {
     @DefaultValue("N/A") var company: String = ""
 }
 
-fileprivate struct CastableNewWrappers: Castable {
+private struct CastableNewWrappers: Castable {
     @Pattern("[a-z]+") var code: String = ""
     @Precision(2) var price: Double = 0.0
     @Count(3) var picks: [String] = []
     @Nullable var nick: String = ""
     @DefaultValue("N/A") var company: String = ""
-    init() {}
 }
 
 @Suite("NewPropertyWrappers")
 struct NewWrapperTests {
-
-    fileprivate let instance = NewWrappersStruct()
+    private let instance = NewWrappersStruct()
 
     // MARK: - Mirror constraint detection
 
     @Test("Pattern constraint readable via Mirror")
-    func patternMirror() {
+    func patternMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_code" }!
-        let wrapper = child.value as! Pattern<String>
+        let child = try #require(mirror.children.first { $0.label == "_code" })
+        let wrapper = try #require(child.value as? Pattern<String>)
         #expect(wrapper.pattern == "[a-z]+")
     }
 
     @Test("Precision constraint readable via Mirror")
-    func precisionMirror() {
+    func precisionMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_price" }!
-        let wrapper = child.value as! Precision<Double>
+        let child = try #require(mirror.children.first { $0.label == "_price" })
+        let wrapper = try #require(child.value as? Precision<Double>)
         #expect(wrapper.precision == 2)
     }
 
     @Test("Count constraint readable via Mirror")
-    func countMirror() {
+    func countMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_topPicks" }!
-        let wrapper = child.value as! Count<[String]>
+        let child = try #require(mirror.children.first { $0.label == "_topPicks" })
+        let wrapper = try #require(child.value as? Count<[String]>)
         #expect(wrapper.count == 3)
     }
 
     @Test("Nullable constraint readable via Mirror")
-    func nullableMirror() {
+    func nullableMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_nickname" }!
-        let wrapper = child.value as! Nullable<String>
+        let child = try #require(mirror.children.first { $0.label == "_nickname" })
+        let wrapper = try #require(child.value as? Nullable<String>)
         #expect(wrapper.isNullable == true)
     }
 
     @Test("DefaultValue constraint readable via Mirror")
-    func defaultValueMirror() {
+    func defaultValueMirror() throws {
         let mirror = Mirror(reflecting: instance)
-        let child = mirror.children.first { $0.label == "_company" }!
-        let wrapper = child.value as! DefaultValue<String>
+        let child = try #require(mirror.children.first { $0.label == "_company" })
+        let wrapper = try #require(child.value as? DefaultValue<String>)
         #expect(wrapper.defaultValue == "N/A")
     }
 
