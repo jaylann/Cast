@@ -1,3 +1,8 @@
+// File rationale: text-extraction-flavored prompt builder that delegates to
+// `cast`. Owns `extract(from:as:instruction:…)` and any future extraction-
+// shaped entrypoints. Doesn't own: new generation modes or unrelated prompt
+// templates — those go in `CastModel+Generation.swift` or a new file.
+
 import Foundation
 import JSONSchema
 @preconcurrency import MLXLMCommon

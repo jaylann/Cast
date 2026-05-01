@@ -1,3 +1,7 @@
+// File rationale: streaming generation surface and its partial-decode helpers.
+// Owns: `castStream(_:as:…)`, `decodePartial`, `yieldTerminal`, `StreamBufferHolder`.
+// Doesn't own: blocking generation (see `CastModel+Generation.swift`).
+
 import Foundation
 import JSONSchema
 import MLX

@@ -1,3 +1,8 @@
+// File rationale: every blocking generation entrypoint on `CastModel`.
+// Owns: `cast(_:as:…)`, `castJSON(_:…)`, `classify(_:…)`.
+// Doesn't own: streaming (see `CastModel+Stream.swift`) or the
+// extraction-flavored prompt (see `CastModel+Extract.swift`).
+
 import Foundation
 import JSONSchema
 import MLX

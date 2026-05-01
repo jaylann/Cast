@@ -1,3 +1,9 @@
+// File rationale: internal cross-isolation glue shared by `+Generation` and
+// `+Stream`. Owns `withGenerationTimeout` (free function) and
+// `withInFlightRegistration` (extension method).
+// Doesn't own: any public API — this file only adds infrastructure consumed
+// by generation entrypoints.
+
 import Foundation
 
 /// Race a generation against a wall-clock timeout. When the timeout fires,
