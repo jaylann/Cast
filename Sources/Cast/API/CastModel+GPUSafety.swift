@@ -1,3 +1,9 @@
+// File rationale: Metal/MLX lifecycle plumbing.
+// Owns: the global MLX error handler bridge, `cleanupGPU()`,
+// `ensureErrorHandler()`, `checkAndClearMLXGlobalError()`.
+// Doesn't own: anything that doesn't touch `MLX.Stream` / `Memory` /
+// the global C error handler.
+
 import Foundation
 import MLX
 @preconcurrency import MLXLMCommon
@@ -8,10 +14,11 @@ import os
 /// Captures errors from MLX C++ scheduler threads where Swift error handlers aren't visible.
 private let mlxGlobalErrorLock = OSAllocatedUnfairLock(initialState: String?.none)
 
-private let globalMLXErrorHandler: @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Void = { message, _ in
-    let errorMessage = message.map { String(cString: $0) } ?? "Unknown MLX error"
-    mlxGlobalErrorLock.withLock { $0 = errorMessage }
-}
+private let globalMLXErrorHandler: @convention(c) (UnsafePointer<CChar>?, UnsafeMutableRawPointer?)
+    -> Void = { message, _ in
+        let errorMessage = message.map { String(cString: $0) } ?? "Unknown MLX error"
+        mlxGlobalErrorLock.withLock { $0 = errorMessage }
+    }
 
 private let _setupGlobalErrorHandler: Void = {
     setErrorHandler(globalMLXErrorHandler)
@@ -20,7 +27,6 @@ private let _setupGlobalErrorHandler: Void = {
 // MARK: - GPU Safety Extensions
 
 extension CastModel {
-
     static func ensureErrorHandler() {
         _ = _setupGlobalErrorHandler
     }

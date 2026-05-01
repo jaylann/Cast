@@ -9,11 +9,12 @@ enum CastableDiagnostic: DiagnosticMessage {
     case conflictingLengths
     case patternOnNonString
     case precisionOnNonFloat
-    /// Warns when a field's declared type isn't a known primitive and isn't
-    /// recognizably another `@Castable` struct (Foundation value types like
-    /// `Date`, `URL`, `UUID`, `Data`, `Decimal`). The macro will still project
-    /// it as `<TypeName>.PartiallyGenerated?` in the synthesized mirror; the
-    /// consumer must supply that conformance themselves or wrap the field.
+    /// Errors when a field's declared type isn't a known primitive and isn't
+    /// another `@Castable` struct (Foundation value types like `Date`, `URL`,
+    /// `UUID`, `Data`, `Decimal`). Was a warning pre-v1.0; promoted to error
+    /// because the synthesized mirror would otherwise produce a cryptic
+    /// `<TypeName>.PartiallyGenerated?` compile error downstream — surfacing
+    /// the diagnostic at the call site is friendlier.
     case unknownNonPrimitiveType(typeName: String)
 
     var message: String {
@@ -35,7 +36,7 @@ enum CastableDiagnostic: DiagnosticMessage {
         case .precisionOnNonFloat:
             "@Precision can only be applied to Double or Float properties"
         case let .unknownNonPrimitiveType(typeName):
-            "'\(typeName)' is not a Cast-supported primitive; the synthesized PartiallyGenerated mirror will project this field as '\(typeName).PartiallyGenerated?' and will fail to compile unless '\(typeName)' is itself @Castable. Consider wrapping it in a small @Castable struct or pre-converting to a primitive (e.g. ISO-8601 String for dates)."
+            "'\(typeName)' is not a Cast-supported type. Wrap it in a small @Castable struct, or pre-convert to a primitive at the model boundary (e.g. ISO-8601 String for Date, Base64 String or `[UInt8]`/`[Int]` for Data). See the 'Foundation types' section of MIGRATION.md."
         }
     }
 
@@ -55,9 +56,12 @@ enum CastableDiagnostic: DiagnosticMessage {
     }
 
     var severity: DiagnosticSeverity {
+        // Kept as a `switch self` even though every case currently maps to
+        // `.error`: this preserves the load-bearing structure for any future
+        // `.warning` case without requiring contributors to rediscover the
+        // pattern (and the matching `hasError` early-return guard in
+        // `CastableMacro.expansion`). See CLAUDE.md "Learnings" entry.
         switch self {
-        case .unknownNonPrimitiveType:
-            .warning
         default:
             .error
         }

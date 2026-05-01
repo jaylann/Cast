@@ -168,9 +168,9 @@ struct CastDiagnosticTests {
         )
     }
 
-    @Test("Foundation Date field emits unknownNonPrimitiveType warning but expansion still succeeds")
+    @Test("Foundation Date field emits unknownNonPrimitiveType error and blocks expansion")
     func unknownFoundationType() {
-        let warning = CastableDiagnostic.unknownNonPrimitiveType(typeName: "Date")
+        let error = CastableDiagnostic.unknownNonPrimitiveType(typeName: "Date")
         assertMacroExpansion(
             """
             @Castable
@@ -181,28 +181,10 @@ struct CastDiagnosticTests {
             expandedSource: """
             struct Event {
                 var when: Date
-
-                static let castSchema: JSONSchema = .object(
-                    properties: OrderedDictionary(dictionaryLiteral:
-                        ("when", Date.castSchema)
-                    ),
-                    required: ["when"],
-                    additionalProperties: .boolean(false)
-                )
-
-                init() {
-                }
-
-                struct PartiallyGenerated: Sendable, Decodable {
-                    var when: Date.PartiallyGenerated?
-                }
-            }
-
-            extension Event: Castable, Decodable {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: warning.message, line: 3, column: 5, severity: .warning)
+                DiagnosticSpec(message: error.message, line: 3, column: 5, severity: .error)
             ],
             macros: testMacros
         )

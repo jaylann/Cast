@@ -1,3 +1,9 @@
+// File rationale: in-flight cancellation and iOS app-lifecycle plumbing.
+// Owns: `abortInFlight()`, `enableBackgroundSafety()`/`disableBackgroundSafety()`,
+// and the iOS-only observer storage.
+// Doesn't own: model load/unload (`CastModel.swift` core) or GPU cleanup
+// (`CastModel+GPUSafety.swift`).
+
 import Foundation
 import MLX
 import os

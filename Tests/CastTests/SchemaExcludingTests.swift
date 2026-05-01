@@ -1,17 +1,16 @@
-import Foundation
-import Testing
-import JSONSchema
-import Collections
-
 @testable import Cast
+import Collections
+import Foundation
+import JSONSchema
+import Testing
 
 @Suite("JSONSchema.excluding")
 struct SchemaExcludingTests {
-
     @Test("excluding removes fields from properties")
     func removesFields() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("name", JSONSchema.string()),
                 ("age", JSONSchema.integer()),
                 ("email", JSONSchema.string())
@@ -32,7 +31,8 @@ struct SchemaExcludingTests {
     @Test("excluding removes fields from required array")
     func removesFromRequired() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("name", JSONSchema.string()),
                 ("age", JSONSchema.integer()),
                 ("email", JSONSchema.string())
@@ -53,7 +53,8 @@ struct SchemaExcludingTests {
     @Test("excluding multiple fields")
     func multipleFields() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("a", JSONSchema.string()),
                 ("b", JSONSchema.integer()),
                 ("c", JSONSchema.number()),
@@ -77,7 +78,8 @@ struct SchemaExcludingTests {
     @Test("excluding empty set returns equivalent schema")
     func emptyExclusion() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("name", JSONSchema.string()),
                 ("age", JSONSchema.integer())
             ),
@@ -94,7 +96,8 @@ struct SchemaExcludingTests {
     @Test("excluding preserves field constraints")
     func preservesConstraints() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("title", JSONSchema.string(maxLength: 100)),
                 ("rating", JSONSchema.integer(minimum: 1, maximum: 10)),
                 ("extra", JSONSchema.string())
@@ -118,7 +121,8 @@ struct SchemaExcludingTests {
     @Test("excluding all required fields removes required key")
     func allRequiredExcluded() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("a", JSONSchema.string()),
                 ("b", JSONSchema.string())
             ),
@@ -150,7 +154,8 @@ struct SchemaExcludingTests {
     @Test("excluding works with enum fields")
     func enumFields() throws {
         let schema = JSONSchema.object(
-            properties: OrderedDictionary(dictionaryLiteral:
+            properties: OrderedDictionary(
+                dictionaryLiteral:
                 ("status", JSONSchema.enum(values: [.string("active"), .string("inactive")])),
                 ("name", JSONSchema.string())
             ),
@@ -165,6 +170,185 @@ struct SchemaExcludingTests {
         #expect(props?["name"] != nil)
     }
 
+    // MARK: - Regression locks
+
+    //
+    // These tests exist to fail loudly if the underlying JSON-string round-trip
+    // in `JSONSchema.excluding(fields:)` ever drifts (upstream `JSONSchema`
+    // bumps, encoder shape changes, regex-strip semantics). They lock structural
+    // properties — nested traversal, key adjacency, idempotence — that the
+    // behavioral tests above don't cover.
+
+    @Test("excluding preserves nested object property schemas")
+    func preservesNestedObject() throws {
+        let address = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("street", JSONSchema.string()),
+                ("zip", JSONSchema.string())
+            ),
+            required: ["street", "zip"]
+        )
+        let schema = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("name", JSONSchema.string()),
+                ("address", address)
+            ),
+            required: ["name", "address"],
+            additionalProperties: .boolean(false)
+        )
+
+        let reduced = schema.excluding(fields: ["name"])
+        let json = try schemaDict(reduced)
+        let props = json["properties"] as? [String: Any]
+        let topRequired = json["required"] as? [String] ?? []
+        let nested = props?["address"] as? [String: Any]
+        let nestedProps = nested?["properties"] as? [String: Any]
+        let nestedRequired = nested?["required"] as? [String] ?? []
+
+        #expect(props?["name"] == nil)
+        #expect(!topRequired.contains("name"))
+        #expect(topRequired.contains("address"))
+        #expect(nestedProps?["street"] != nil)
+        #expect(nestedProps?["zip"] != nil)
+        #expect(nestedRequired.contains("street"))
+        #expect(nestedRequired.contains("zip"))
+    }
+
+    @Test("excluding preserves array item schemas")
+    func preservesArrayItems() throws {
+        let item = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("name", JSONSchema.string()),
+                ("qty", JSONSchema.integer())
+            ),
+            required: ["name", "qty"]
+        )
+        let schema = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("title", JSONSchema.string()),
+                ("items", JSONSchema.array(items: item))
+            ),
+            required: ["title", "items"],
+            additionalProperties: .boolean(false)
+        )
+
+        let reduced = schema.excluding(fields: ["title"])
+        let json = try schemaDict(reduced)
+        let props = json["properties"] as? [String: Any]
+        let items = props?["items"] as? [String: Any]
+        let itemSchema = items?["items"] as? [String: Any]
+        let itemProps = itemSchema?["properties"] as? [String: Any]
+
+        #expect(props?["title"] == nil)
+        #expect(itemProps?["name"] != nil)
+        #expect(itemProps?["qty"] != nil)
+    }
+
+    @Test("excluding preserves additionalProperties: false")
+    func preservesAdditionalProperties() throws {
+        let schema = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("a", JSONSchema.string()),
+                ("b", JSONSchema.integer())
+            ),
+            required: ["a", "b"],
+            additionalProperties: .boolean(false)
+        )
+
+        let reduced = schema.excluding(fields: ["a"])
+        let json = try schemaDict(reduced)
+
+        #expect(json["additionalProperties"] as? Bool == false)
+    }
+
+    @Test("top-level field exclusion preserves siblings on schemas with shared sub-schemas")
+    func preservesSiblingsWithSharedSubSchemas() throws {
+        // Reuses `inner` in two sibling positions, which reliably triggers
+        // the upstream JSONSchema encoder's `__N__` deduplication markers in
+        // the raw JSON. `JSONSchema.excluding` strips those markers in its
+        // intermediate JSON-string pass.
+        //
+        // Note: the `schemaDict(_:)` helper below ALSO regex-strips `__N__`
+        // before `JSONSerialization`, so this test does not lock
+        // marker-handling inside `excluding` itself — it only locks that
+        // top-level field exclusion preserves the surviving siblings when
+        // the schema graph contains shared sub-schemas.
+        let inner = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("x", JSONSchema.string()),
+                ("y", JSONSchema.integer())
+            ),
+            required: ["x", "y"]
+        )
+        let schema = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("a", inner),
+                ("b", JSONSchema.array(items: inner)),
+                ("c", JSONSchema.string())
+            ),
+            required: ["a", "b", "c"],
+            additionalProperties: .boolean(false)
+        )
+
+        let reduced = schema.excluding(fields: ["c"])
+        let dict = try schemaDict(reduced)
+        let props = dict["properties"] as? [String: Any]
+
+        #expect(props?["a"] != nil)
+        #expect(props?["b"] != nil)
+        #expect(props?["c"] == nil)
+    }
+
+    @Test("excluding twice yields the same property set as excluding once")
+    func idempotent() throws {
+        // Idempotence at the *property-set* level. Byte-level equality is
+        // not guaranteed because the round-trip goes through `[String: Any]`,
+        // whose iteration order is not stable across the second pass.
+        let schema = JSONSchema.object(
+            properties: OrderedDictionary(
+                dictionaryLiteral:
+                ("a", JSONSchema.string()),
+                ("b", JSONSchema.integer()),
+                ("c", JSONSchema.boolean())
+            ),
+            required: ["a", "b", "c"],
+            additionalProperties: .boolean(false)
+        )
+
+        let once = schema.excluding(fields: ["b"])
+        let twice = once.excluding(fields: ["b"])
+
+        let onceProps = try (schemaDict(once))["properties"] as? [String: Any] ?? [:]
+        let twiceProps = try (schemaDict(twice))["properties"] as? [String: Any] ?? [:]
+        let onceRequired = try Set(schemaDict(once)["required"] as? [String] ?? [])
+        let twiceRequired = try Set(schemaDict(twice)["required"] as? [String] ?? [])
+
+        #expect(Set(onceProps.keys) == Set(twiceProps.keys))
+        #expect(onceProps.keys.sorted() == ["a", "c"])
+        #expect(onceRequired == twiceRequired)
+        #expect(!onceRequired.contains("b"))
+    }
+
+    @Test("excluding non-object schema returns input unchanged")
+    func nonObjectSchemaUnchanged() throws {
+        let schema = JSONSchema.string(maxLength: 100)
+        let reduced = schema.excluding(fields: ["anything"])
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let originalData = try encoder.encode(schema)
+        let reducedData = try encoder.encode(reduced)
+
+        #expect(originalData == reducedData)
+    }
+
     // MARK: - Helpers
 
     private func schemaDict(_ schema: JSONSchema) throws -> [String: Any] {
@@ -172,7 +356,8 @@ struct SchemaExcludingTests {
         let sanitized = String(decoding: data, as: UTF8.self)
             .replacingOccurrences(of: "__[0-9]+__", with: "", options: .regularExpression)
         guard let jsonData = sanitized.data(using: .utf8),
-              let dict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+              let dict = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        else {
             throw TestError.invalidSchema
         }
         return dict

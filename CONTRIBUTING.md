@@ -55,6 +55,21 @@ Use descriptive branch names:
 - Use Swift Testing framework (`import Testing`)
 - Macro changes need expansion tests using `assertMacroExpansion`
 
+## Picking a `CastModel+*.swift` file
+
+`Sources/Cast/API/` splits the `CastModel` surface across six extension files. Use the table below when you add a new method so it lands in the right one — the file each method lives in is its surface contract.
+
+| File | Owns | Don't put here |
+|---|---|---|
+| `CastModel+Generation.swift` | every blocking generation entrypoint: `cast`, `castJSON`, `classify` | streaming, extraction-flavored prompts |
+| `CastModel+Stream.swift` | `castStream` and partial-decode helpers | blocking generation |
+| `CastModel+Extract.swift` | `extract(from:as:instruction:…)` and future extraction-shaped APIs | unrelated prompt templates |
+| `CastModel+Lifecycle.swift` | `abortInFlight()`, iOS background-safety hooks | model load/unload (the core `CastModel` type) |
+| `CastModel+Timeout.swift` | internal cross-isolation glue (`withGenerationTimeout`, `withInFlightRegistration`) | new public API |
+| `CastModel+GPUSafety.swift` | Metal/MLX lifecycle plumbing (`cleanupGPU`, global error handler) | code that doesn't touch `MLX.Stream` / `Memory` |
+
+If a new method doesn't fit any existing surface, add a new `CastModel+<Surface>.swift` rather than overloading one of the above. The first line of every such file should be a short header `// File rationale: …` comment that states what it owns and what it doesn't.
+
 ## Pull Request Process
 
 1. Fork the repository
