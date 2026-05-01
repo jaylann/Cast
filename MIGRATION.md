@@ -246,6 +246,15 @@ Then derive a `Date` from `event.when.iso8601` at the call site.
 
 ---
 
+## Source-breaking changes in v1.0
+
+If you call any of the surfaces below directly, update your call sites:
+
+- `PromptEngine.buildPrompt(schema:userPrompt:)` and `PromptEngine.buildExtractionPrompt(schema:source:userPrompt:)` are now `throws` — wrap calls in `try` and catch `CastError.schemaGenerationFailed` for the schema-JSON-encoding failure case (rare; only triggered by non-JSON-finite schema constants like `Double.nan`).
+
+---
+
+
 ## Known sharp edges (and where to follow them)
 
 | Issue | Status | Workaround until then |

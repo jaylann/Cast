@@ -2,6 +2,20 @@ import Foundation
 import JSONSchema
 
 public enum PromptEngine {
+    /// Build a system + user prompt pair that embeds the JSON schema the
+    /// model must conform to. When `system` is supplied, it is returned
+    /// verbatim as the system message; otherwise a default system message
+    /// is synthesized from the schema and any per-field annotations.
+    ///
+    /// - Parameters:
+    ///   - userPrompt: The user-facing instruction returned as the user message.
+    ///   - schema: The JSON schema the output must conform to.
+    ///   - annotations: Optional per-field guidance (description, examples).
+    ///   - system: Optional override for the system message.
+    /// - Throws: ``CastError/schemaGenerationFailed(_:)`` if the schema
+    ///   cannot be JSON-encoded (e.g. it carries a non-finite `Double`
+    ///   constant such as `.nan` that `JSONEncoder` rejects under its
+    ///   default `nonConformingFloatEncodingStrategy`).
     public static func buildPrompt(
         userPrompt: String,
         schema: JSONSchema,
@@ -94,6 +108,10 @@ public enum PromptEngine {
     ///   - schema: The JSON schema the output must conform to.
     ///   - annotations: Optional per-field guidance (description, examples).
     ///   - system: Optional override for the system message.
+    /// - Throws: ``CastError/schemaGenerationFailed(_:)`` if the schema
+    ///   cannot be JSON-encoded (e.g. it carries a non-finite `Double`
+    ///   constant such as `.nan` that `JSONEncoder` rejects under its
+    ///   default `nonConformingFloatEncodingStrategy`).
     public static func buildExtractionPrompt(
         text: String,
         instruction: String,
