@@ -1,0 +1,71 @@
+# Path-based PR labeler — auto-applies area:* labels by changed paths.
+# Used by .github/workflows/labeler.yml (actions/labeler@v5).
+#
+# CI gate (.github/workflows/pr-conventions.yml) still requires exactly one
+# `type:*` label and at least one `area:*` label — this just pre-fills the
+# area: side so contributors only have to set type: themselves.
+
+"area:api":
+  - changed-files:
+      - any-glob-to-any-file: ['Sources/Cast/API/**']
+
+"area:macro":
+  - changed-files:
+      - any-glob-to-any-file: ['Sources/CastMacros/**']
+
+"area:prompt":
+  - changed-files:
+      - any-glob-to-any-file: ['Sources/Cast/Prompt/**']
+
+"area:tokenizer":
+  - changed-files:
+      - any-glob-to-any-file: ['Sources/Cast/Tokenizer/**']
+
+"area:sampler":
+  - changed-files:
+      - any-glob-to-any-file: ['Sources/Cast/Sampler/**']
+
+"area:schema":
+  - changed-files:
+      - any-glob-to-any-file: ['Sources/Cast/Schema/**']
+
+"area:mlx":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Sources/MLXStructured/**'
+          - 'Sources/CMLXStructured/**'
+
+"area:examples":
+  - changed-files:
+      - any-glob-to-any-file: ['Examples/**']
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Sources/Cast/Cast.docc/**'
+          - 'docs/**'
+          - 'README.md'
+          - 'MIGRATION.md'
+          - 'CHANGELOG.md'
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/dependabot.yml'
+          - '.github/labeler.yml'
+          - 'scripts/**'
+
+"area:tests":
+  - changed-files:
+      - any-glob-to-any-file: ['Tests/**']
+
+"area:tooling":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.swiftformat'
+          - '.swiftlint.yml'
+          - '.coderabbit.yaml'
+          - '.claude/**'
+          - 'CLAUDE.md'
+          - '.github/copilot-instructions.md'
