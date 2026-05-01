@@ -1,9 +1,7 @@
 // What this shows: load CastModel from a local directory or a custom HF mirror endpoint.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Note {

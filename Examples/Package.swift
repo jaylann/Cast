@@ -49,11 +49,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "CustomModelSource",
-            dependencies: [
-                .product(name: "Cast", package: "Cast"),
-                .product(name: "JSONSchema", package: "swift-json-schema"),
-                .product(name: "Collections", package: "swift-collections")
-            ]
+            dependencies: [.product(name: "Cast", package: "Cast")]
         ),
         .executableTarget(
             name: "ValidatorAndExcluding",

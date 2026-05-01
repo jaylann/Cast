@@ -63,19 +63,15 @@ struct ModelSourceTests {
     @Test("bundle with a missing resource throws .modelNotFound")
     func bundleMissingResource() {
         let source = ModelSource.bundle(.main, resourceName: "definitely-not-shipped-\(UUID().uuidString)")
-        #expect(throws: CastError.self) {
-            _ = try source.resolved()
-        }
-        do {
-            _ = try source.resolved()
-            Issue.record("Expected resolved() to throw")
-        } catch let error as CastError {
-            guard case .modelNotFound = error else {
-                Issue.record("Expected .modelNotFound, got \(error)")
-                return
+        #expect {
+            try source.resolved()
+        } throws: { error in
+            guard let castError = error as? CastError,
+                  case .modelNotFound = castError
+            else {
+                return false
             }
-        } catch {
-            Issue.record("Expected CastError, got \(error)")
+            return true
         }
     }
 
