@@ -19,7 +19,9 @@ enum CustomModelSource {
         print("[directory]", note)
 
         // 2. Custom HF-shaped endpoint — corporate mirror, self-hosted CDN, proxy.
-        guard let endpoint = URL(string: "https://hf-mirror.corp.example.com") else { return }
+        guard let endpoint = URL(string: "https://hf-mirror.corp.example.com") else {
+            throw URLError(.badURL)
+        }
         let mirror = try await CastModel.load(
             .customEndpoint(
                 id: "internal/llama-3.2-3b-4bit",
