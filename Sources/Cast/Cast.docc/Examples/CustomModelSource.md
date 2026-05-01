@@ -10,9 +10,7 @@ Full source: [Examples/Sources/CustomModelSource/main.swift](https://github.com/
 // What this shows: load CastModel from a local directory or a custom HF mirror endpoint.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Note {
