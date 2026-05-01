@@ -3,9 +3,7 @@
 // ValidatorAndExcluding example, per the issue conventions.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Recipe {

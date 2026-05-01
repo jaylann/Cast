@@ -3,9 +3,7 @@
 // JSON string.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct BookSummary {

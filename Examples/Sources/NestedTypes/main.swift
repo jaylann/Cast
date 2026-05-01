@@ -4,9 +4,7 @@
 // inventing extra keys at any level.
 
 import Cast
-import Collections
 import Foundation
-import JSONSchema
 
 @Castable
 struct Author {

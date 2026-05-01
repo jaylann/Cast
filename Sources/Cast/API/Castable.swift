@@ -1,3 +1,6 @@
+@_exported import Collections
+@_exported import JSONSchema
+
 /// Generates a JSON Schema and `Decodable` conformance for a struct, making it
 /// usable as the output type of ``CastModel/cast(_:as:system:config:didGenerate:)-1jybk``.
 ///
