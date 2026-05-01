@@ -47,23 +47,21 @@ final class DemoViewModel {
         isLoading = true
         errorMessage = nil
         let id = modelID
+        // Task inherits MainActor isolation from the enclosing context,
+        // so we can mutate state directly without an inner MainActor.run hop.
         Task { [weak self] in
             do {
                 let loaded = try await CastModel.load(id)
-                await MainActor.run {
-                    guard let self else { return }
-                    self.model = loaded
-                    self.isLoading = false
-                    // Cancel in-flight generation when the app backgrounds
-                    // so iOS doesn't kill us for holding the GPU.
-                    loaded.enableBackgroundSafety()
-                }
+                guard let self else { return }
+                self.model = loaded
+                self.isLoading = false
+                // Cancel in-flight generation when the app backgrounds
+                // so iOS doesn't kill us for holding the GPU.
+                loaded.enableBackgroundSafety()
             } catch {
-                await MainActor.run {
-                    guard let self else { return }
-                    self.errorMessage = "Load failed: \(error.localizedDescription)"
-                    self.isLoading = false
-                }
+                guard let self else { return }
+                self.errorMessage = "Load failed: \(error.localizedDescription)"
+                self.isLoading = false
             }
         }
     }
@@ -82,47 +80,39 @@ final class DemoViewModel {
         let sourceText = self.sourceText
 
         generationTask = Task { [weak self] in
-            defer {
-                Task { @MainActor [weak self] in
-                    self?.isGenerating = false
-                }
-            }
+            // The enclosing Task inherits MainActor isolation, so defer runs
+            // synchronously on MainActor — no extra hop, no UX race window
+            // where a fast second tap sees stale isGenerating=true.
+            defer { self?.isGenerating = false }
 
             do {
                 switch mode {
                 case .cast:
                     for try await partial in model.castStream(prompt, as: Recipe.self) {
-                        let snapshot = partial.value
-                        let pct = partial.progress
-                        await MainActor.run { [weak self] in
-                            self?.partialRecipe = snapshot
-                            self?.progress = pct
-                        }
+                        self?.partialRecipe = partial.value
+                        self?.progress = partial.progress
                     }
                 case .classify:
                     let result: Sentiment = try await model.classify(prompt)
-                    await MainActor.run { [weak self] in
-                        self?.classification = result
-                    }
+                    self?.classification = result
                 case .extract:
                     let fields: InvoiceFields = try await model.extract(
                         from: sourceText,
                         instruction: prompt
                     )
-                    await MainActor.run { [weak self] in
-                        self?.extracted = fields
-                    }
+                    self?.extracted = fields
                 }
             } catch {
-                await MainActor.run { [weak self] in
-                    self?.errorMessage = error.localizedDescription
-                }
+                self?.errorMessage = error.localizedDescription
             }
         }
     }
 
     func cancel() {
-        model?.abortInFlight()
+        // castStream's continuation.onTermination already cancels the
+        // underlying generation when the local Task is cancelled, so we
+        // don't need to call abortInFlight() (which would also cancel
+        // unrelated in-flight calls on the same model).
         generationTask?.cancel()
     }
 }
@@ -198,6 +188,11 @@ struct ContentView: View {
             }
             .navigationTitle("Cast Demo")
         }
+        // Tear down any in-flight generation if the user navigates away
+        // — iOS background safety only fires on app-backgrounding, not
+        // on view disappearance, and we don't want to keep holding the
+        // GPU while writing into an unobserved view-model.
+        .onDisappear { vm.cancel() }
     }
 }
 
@@ -221,7 +216,7 @@ struct OutputView: View {
                     LabeledContent("Ingredients") {
                         VStack(alignment: .trailing) {
                             ForEach(Array(ingredients.enumerated()), id: \.offset) { _, item in
-                                Text(item ?? "—")
+                                Text(item)
                             }
                         }
                     }

@@ -4,7 +4,7 @@ A SwiftUI iOS demo of the [Cast](https://github.com/jaylann/Cast) Swift package.
 
 ## Prerequisites
 
-- Xcode 15+ (Swift 6.0)
+- Xcode 16+ (or Xcode 15 with an external Swift 6 toolchain)
 - An M-series Mac (MLX requires Apple Silicon)
 - iOS Simulator or a physical iOS 17+ device
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) for generating the Xcode project

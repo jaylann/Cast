@@ -1,3 +1,12 @@
+# SwiftUIDemo
+
+SwiftUI app demonstrating cast/classify/extract with live-streaming Recipe fields.
+
+## Source
+
+Full source: [Examples/Sources/SwiftUIDemo/main.swift](https://github.com/jaylann/Cast/blob/main/Examples/Sources/SwiftUIDemo/main.swift)
+
+```swift
 // What this shows: SwiftUI app demonstrating cast/classify/extract with live-streaming Recipe fields.
 
 #if os(macOS) || os(iOS)
@@ -299,3 +308,4 @@
     }
 
 #endif
+```

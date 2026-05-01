@@ -1,4 +1,6 @@
 import Cast
+import Collections
+import JSONSchema
 
 @Castable
 struct Recipe {
