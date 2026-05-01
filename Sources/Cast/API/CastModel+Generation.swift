@@ -255,28 +255,7 @@ public extension CastModel {
             throw CastError.cancelled(partialOutput: result.output)
         }
 
-        let decodeInput: String
-        if config.repairTruncatedJSON {
-            switch JSONRepair.repair(result.output) {
-            case let .ok(value):
-                decodeInput = value
-            case let .repaired(value, _):
-                decodeInput = value
-            case let .unrecoverable(reason):
-                throw CastError.repairFailed(rawOutput: result.output, reason: reason)
-            }
-        } else {
-            decodeInput = result.output
-        }
-
-        do {
-            return try ValidatorSupport.decode(T.self, from: Data(decodeInput.utf8))
-        } catch {
-            throw CastError.decodingFailed(
-                rawOutput: decodeInput,
-                error: error.localizedDescription
-            )
-        }
+        return try CastDecode.decode(T.self, rawOutput: result.output, config: config)
     }
 
     /// Classify `prompt` into one of the cases of a ``CastEnum`` with a
@@ -339,5 +318,38 @@ public extension CastModel {
             built.user, as: type, schema: schema, system: built.system,
             config: classifyConfig, didGenerate: didGenerate
         )
+    }
+}
+
+/// Post-generation decode helper. Extracted from `cast(_:as:schema:...)` so
+/// tests can drive the same repair + ValidatorSupport.decode path that
+/// production generation uses, without spinning up MLX.
+enum CastDecode {
+    static func repair(rawOutput: String, config: CastConfiguration) throws -> String {
+        guard config.repairTruncatedJSON else { return rawOutput }
+        switch JSONRepair.repair(rawOutput) {
+        case let .ok(value):
+            return value
+        case let .repaired(value, _):
+            return value
+        case let .unrecoverable(reason):
+            throw CastError.repairFailed(rawOutput: rawOutput, reason: reason)
+        }
+    }
+
+    static func decode<T: Decodable>(
+        _: T.Type,
+        rawOutput: String,
+        config: CastConfiguration
+    ) throws -> T {
+        let decodeInput = try repair(rawOutput: rawOutput, config: config)
+        do {
+            return try ValidatorSupport.decode(T.self, from: Data(decodeInput.utf8))
+        } catch {
+            throw CastError.decodingFailed(
+                rawOutput: decodeInput,
+                error: error.localizedDescription
+            )
+        }
     }
 }
