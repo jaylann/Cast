@@ -250,7 +250,7 @@ Then derive a `Date` from `event.when.iso8601` at the call site.
 
 If you call any of the surfaces below directly, update your call sites:
 
-- `PromptEngine.buildPrompt(schema:userPrompt:)` and `PromptEngine.buildExtractionPrompt(schema:source:userPrompt:)` are now `throws` — wrap calls in `try` and catch `CastError.schemaGenerationFailed` for the schema-JSON-encoding failure case (rare; only triggered by non-JSON-finite schema constants like `Double.nan`).
+- `PromptEngine.buildPrompt(userPrompt:schema:annotations:system:)` and `PromptEngine.buildExtractionPrompt(text:instruction:schema:annotations:system:)` are now `throws` — wrap calls in `try` and catch `CastError.schemaGenerationFailed` for the schema-JSON-encoding failure case (rare; only triggered by non-JSON-finite schema constants like `Double.nan`).
 
 ---
 
