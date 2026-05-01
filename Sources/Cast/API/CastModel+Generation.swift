@@ -318,25 +318,24 @@ public extension CastModel {
 /// tests can drive the same repair + ValidatorSupport.decode path that
 /// production generation uses, without spinning up MLX.
 enum CastDecode {
+    static func repair(rawOutput: String, config: CastConfiguration) throws -> String {
+        guard config.repairTruncatedJSON else { return rawOutput }
+        switch JSONRepair.repair(rawOutput) {
+        case let .ok(value):
+            return value
+        case let .repaired(value, _):
+            return value
+        case let .unrecoverable(reason):
+            throw CastError.repairFailed(rawOutput: rawOutput, reason: reason)
+        }
+    }
+
     static func decode<T: Decodable>(
         _: T.Type,
         rawOutput: String,
         config: CastConfiguration
     ) throws -> T {
-        let decodeInput: String
-        if config.repairTruncatedJSON {
-            switch JSONRepair.repair(rawOutput) {
-            case let .ok(value):
-                decodeInput = value
-            case let .repaired(value, _):
-                decodeInput = value
-            case let .unrecoverable(reason):
-                throw CastError.repairFailed(rawOutput: rawOutput, reason: reason)
-            }
-        } else {
-            decodeInput = rawOutput
-        }
-
+        let decodeInput = try repair(rawOutput: rawOutput, config: config)
         do {
             return try ValidatorSupport.decode(T.self, from: Data(decodeInput.utf8))
         } catch {

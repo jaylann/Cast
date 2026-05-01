@@ -103,7 +103,7 @@ public extension CastModel {
 
         // Cross-isolation handle for the in-flight buffer so the cancellation
         // catch (outside the perform closure) can recover the partial bytes.
-        let bufferHolder = StreamBufferHolder()
+        let bufferHolder = StreamDecode.BufferHolder()
         do {
             try await withInFlightRegistration {
                 try await withGenerationTimeout(config.timeout) {
@@ -128,7 +128,7 @@ public extension CastModel {
                             lastTokenCount = chunk.totalTokens
                             bufferHolder.set(buffer)
 
-                            if let snapshot = decodePartial(
+                            if let snapshot = StreamDecode.partial(
                                 T.self,
                                 from: buffer,
                                 tokenCount: lastTokenCount,
@@ -146,7 +146,7 @@ public extension CastModel {
                         // outer `Task.isCancelled` check below instead.
                         if Task.isCancelled { return }
 
-                        try yieldTerminal(
+                        try StreamDecode.terminal(
                             T.self,
                             buffer: buffer,
                             tokenCount: lastTokenCount,
@@ -181,108 +181,94 @@ public extension CastModel {
     }
 }
 
-/// Sendable bridge for the in-flight stream buffer. Lets the post-cancel
-/// `catch` block recover the last bytes accumulated inside the perform
-/// closure (which runs on a different actor) so they can ride along on
-/// `CastError.cancelled(partialOutput:)`.
-final class StreamBufferHolder: @unchecked Sendable {
-    private let lock = NSLock()
-    private var buffer = ""
-
-    func set(_ newValue: String) {
-        lock.lock()
-        defer { lock.unlock() }
-        buffer = newValue
-    }
-
-    func snapshot() -> String? {
-        lock.lock()
-        defer { lock.unlock() }
-        return buffer.isEmpty ? nil : buffer
-    }
-}
-
-func decodePartial<T: Castable>(
-    _: T.Type,
-    from buffer: String,
-    tokenCount: Int,
-    maxTokens: Int,
-    minProgress: Double
-) -> PartialResult<T>? {
-    let candidate: String
-    switch JSONRepair.repair(buffer) {
-    case let .ok(value):
-        candidate = value
-    case let .repaired(value, _):
-        candidate = value
-    case .unrecoverable:
-        return nil
-    }
-
-    guard let value = try? JSONDecoder().decode(
-        T.PartiallyGenerated.self,
-        from: Data(candidate.utf8)
-    ) else {
-        return nil
-    }
-
-    let raw = min(Double(tokenCount) / Double(maxTokens), 1.0)
-    let progress = max(raw, minProgress)
-    return PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount)
-}
-
-func yieldTerminal<T: Castable>(
-    _: T.Type,
-    buffer: String,
-    tokenCount: Int,
-    maxTokens: Int,
-    minProgress: Double,
-    config: CastConfiguration,
-    continuation: AsyncThrowingStream<PartialResult<T>, Error>.Continuation
-) throws {
-    let decodeInput: String
-    if config.repairTruncatedJSON {
+/// Internal namespace for `castStream` decode helpers and the in-flight
+/// buffer bridge. Caseless enum keeps the module-internal surface focused
+/// — these names are only meaningful in the streaming pipeline.
+enum StreamDecode {
+    static func partial<T: Castable>(
+        _: T.Type,
+        from buffer: String,
+        tokenCount: Int,
+        maxTokens: Int,
+        minProgress: Double
+    ) -> PartialResult<T>? {
+        let candidate: String
         switch JSONRepair.repair(buffer) {
         case let .ok(value):
-            decodeInput = value
+            candidate = value
         case let .repaired(value, _):
-            decodeInput = value
-        case let .unrecoverable(reason):
-            throw CastError.repairFailed(rawOutput: buffer, reason: reason)
+            candidate = value
+        case .unrecoverable:
+            return nil
         }
-    } else {
-        decodeInput = buffer
+
+        guard let value = try? JSONDecoder().decode(
+            T.PartiallyGenerated.self,
+            from: Data(candidate.utf8)
+        ) else {
+            return nil
+        }
+
+        let raw = min(Double(tokenCount) / Double(maxTokens), 1.0)
+        let progress = max(raw, minProgress)
+        return PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount)
     }
 
-    // The terminal yield must guarantee a fully-decoded value, matching
-    // `cast()` semantics. `T.PartiallyGenerated` is all-Optional, so it
-    // would silently accept a buffer with missing required fields (e.g. a
-    // generation that hit `maxTokens` mid-object). Decode `T.self` first to
-    // enforce the schema's required-field contract; only then project to
-    // `PartiallyGenerated` for the consumer-facing type.
-    let data = Data(decodeInput.utf8)
-    let decoder = JSONDecoder()
+    static func terminal<T: Castable>(
+        _: T.Type,
+        buffer: String,
+        tokenCount: Int,
+        maxTokens: Int,
+        minProgress: Double,
+        config: CastConfiguration,
+        continuation: AsyncThrowingStream<PartialResult<T>, Error>.Continuation
+    ) throws {
+        let decodeInput = try CastDecode.repair(rawOutput: buffer, config: config)
+        let data = Data(decodeInput.utf8)
 
-    do {
-        _ = try decoder.decode(T.self, from: data)
-    } catch {
-        throw CastError.decodingFailed(
-            rawOutput: decodeInput,
-            error: error.localizedDescription
-        )
+        // Strict required-field check (matches cast() semantics) — also applies validators.
+        do {
+            _ = try ValidatorSupport.decode(T.self, from: data)
+        } catch {
+            throw CastError.decodingFailed(
+                rawOutput: decodeInput,
+                error: error.localizedDescription
+            )
+        }
+
+        let value: T.PartiallyGenerated
+        do {
+            value = try JSONDecoder().decode(T.PartiallyGenerated.self, from: data)
+        } catch {
+            throw CastError.decodingFailed(
+                rawOutput: decodeInput,
+                error: error.localizedDescription
+            )
+        }
+
+        let raw = min(Double(tokenCount) / Double(maxTokens), 1.0)
+        let progress = max(raw, minProgress)
+        continuation.yield(PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount))
     }
 
-    let value: T.PartiallyGenerated
-    do {
-        value = try decoder.decode(T.PartiallyGenerated.self, from: data)
-    } catch {
-        throw CastError.decodingFailed(
-            rawOutput: decodeInput,
-            error: error.localizedDescription
-        )
-    }
+    /// Sendable bridge for the in-flight stream buffer. Lets the post-cancel
+    /// `catch` block recover the last bytes accumulated inside the perform
+    /// closure (which runs on a different actor) so they can ride along on
+    /// `CastError.cancelled(partialOutput:)`.
+    final class BufferHolder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var buffer = ""
 
-    let raw = min(Double(tokenCount) / Double(maxTokens), 1.0)
-    let progress = max(raw, minProgress)
-    continuation.yield(PartialResult<T>(value: value, progress: progress, tokenCount: tokenCount))
+        func set(_ newValue: String) {
+            lock.lock()
+            defer { lock.unlock() }
+            buffer = newValue
+        }
+
+        func snapshot() -> String? {
+            lock.lock()
+            defer { lock.unlock() }
+            return buffer.isEmpty ? nil : buffer
+        }
+    }
 }

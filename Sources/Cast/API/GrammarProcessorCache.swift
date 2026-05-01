@@ -2,7 +2,7 @@ import Foundation
 import MLXLMCommon
 @preconcurrency import MLXStructured
 
-typealias TokenizerArtifactsLoader =
+private typealias TokenizerArtifactsLoader =
     @Sendable (ModelConfiguration) async throws -> TokenizerArtifacts
 
 actor GrammarProcessorCache {
@@ -10,9 +10,11 @@ actor GrammarProcessorCache {
     private var inFlight: [String: Task<TokenizerArtifacts, any Error>] = [:]
     private let loader: TokenizerArtifactsLoader
 
-    init(loader: @escaping TokenizerArtifactsLoader = {
-        try await GrammarMaskedLogitProcessor.loadTokenizerArtifacts(configuration: $0)
-    }) {
+    init(
+        loader: @escaping @Sendable (ModelConfiguration) async throws -> TokenizerArtifacts = {
+            try await GrammarMaskedLogitProcessor.loadTokenizerArtifacts(configuration: $0)
+        }
+    ) {
         self.loader = loader
     }
 
@@ -27,7 +29,6 @@ actor GrammarProcessorCache {
             return try await existing.value
         }
 
-        let loader = loader
         let task = Task {
             try await loader(configuration)
         }

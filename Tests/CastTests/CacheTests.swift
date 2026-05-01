@@ -6,8 +6,10 @@ import Testing
 
 private actor LoaderCounter {
     private(set) var count = 0
-    func bump() {
+    @discardableResult
+    func bump() -> Int {
         count += 1
+        return count
     }
 }
 
@@ -60,8 +62,7 @@ struct CacheTests {
     func failurePathClearsInflight() async throws {
         let counter = LoaderCounter()
         let cache = GrammarProcessorCache { _ in
-            await counter.bump()
-            let invocation = await counter.count
+            let invocation = await counter.bump()
             if invocation == 1 {
                 throw CastError.generationFailed("boom")
             }
