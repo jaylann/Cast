@@ -42,6 +42,7 @@ invalid tokens during decoding — so the model can only emit JSON that matches.
 
 - <doc:HelloCast>
 - <doc:Classify>
+- <doc:Extract>
 - <doc:GenerationModes>
 - <doc:NestedTypes>
 - <doc:PropertyWrappersTour>
