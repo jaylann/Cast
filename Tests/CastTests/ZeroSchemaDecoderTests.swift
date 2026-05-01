@@ -66,6 +66,11 @@ private struct WithMaxLen {
     @MaxLength(10) var title: String = ""
 }
 
+@Castable
+private struct WithRangeNumeric {
+    @CastRange(0...100) var n: Int = 0
+}
+
 private enum CustomKind: String, Decodable, Sendable, CaseIterable, CastSchemaProviding, _FirstCaseProvider {
     case alpha, beta
     static var castSchema: JSONSchema {
@@ -128,7 +133,9 @@ struct ZeroSchemaDecoderDirectTests {
     func requiredVsOptional() throws {
         let info = try ZeroSchemaDecoder.decode(RequiredAndOptional.self)
         #expect(info.required == ["a"])
-        #expect(info.fields.count == 2)
+        #expect(info.fields.map(\.name) == ["a", "b"])
+        let kinds = Dictionary(uniqueKeysWithValues: info.fields.map { ($0.name, $0.kind) })
+        #expect(kinds["b"] == .string)
     }
 
     @Test("Primitive arrays produce array schema with element kinds")
@@ -154,8 +161,7 @@ struct ZeroSchemaDecoderDirectTests {
         )
         let items = try #require(json["items"] as? [String: Any])
         let props = try #require(items["properties"] as? [String: Any])
-        let propKeys = props.keys.joined(separator: ",")
-        #expect(propKeys.contains("x"))
+        #expect(props.keys.contains(where: { $0.contains("x") }))
     }
 
     @Test("Nested @Castable object yields object kind with inner properties")
@@ -170,8 +176,7 @@ struct ZeroSchemaDecoderDirectTests {
         )
         #expect(json["type"] as? String == "object")
         let props = try #require(json["properties"] as? [String: Any])
-        let propKeys = props.keys.joined(separator: ",")
-        #expect(propKeys.contains("x"))
+        #expect(props.keys.contains(where: { $0.contains("x") }))
     }
 
     @Test("Enum via CastEnum decodes as enumeration with first case zero")
@@ -179,6 +184,11 @@ struct ZeroSchemaDecoderDirectTests {
         let info = try ZeroSchemaDecoder.decode(ColorHolder.self)
         let field = try #require(info.fields.first { $0.name == "color" })
         #expect(field.kind == .enumeration)
+
+        let data = try JSONEncoder().encode(field.schema)
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let enumValues = try #require(json["enum"] as? [String])
+        #expect(Set(enumValues) == ["red", "blue"])
 
         let zero = try #require(info.zeroInstance as? ColorHolder)
         #expect(zero.color == .red)
@@ -195,7 +205,13 @@ struct ZeroSchemaDecoderDirectTests {
         #expect(zero.f == 0)
         #expect(zero.i == 0)
         #expect(zero.i8 == 0)
+        #expect(zero.i16 == 0)
+        #expect(zero.i32 == 0)
+        #expect(zero.i64 == 0)
         #expect(zero.u == 0)
+        #expect(zero.u8 == 0)
+        #expect(zero.u16 == 0)
+        #expect(zero.u32 == 0)
         #expect(zero.u64 == 0)
     }
 
@@ -206,6 +222,13 @@ struct ZeroSchemaDecoderDirectTests {
         #expect(field.kind == .string)
     }
 
+    @Test("Property wrapper field on numeric short-circuits to integer kind")
+    func propertyWrapperNumericShortCircuit() throws {
+        let info = try ZeroSchemaDecoder.decode(WithRangeNumeric.self)
+        let field = try #require(info.fields.first { $0.name == "n" })
+        #expect(field.kind == .integer)
+    }
+
     @Test("CastSchemaProviding override is used over structural decoding")
     func castSchemaProvidingOverride() throws {
         let info = try ZeroSchemaDecoder.decode(CustomKindHolder.self)
@@ -213,9 +236,12 @@ struct ZeroSchemaDecoderDirectTests {
         #expect(field.kind == .enumeration)
 
         let data = try JSONEncoder().encode(field.schema)
-        let raw = String(decoding: data, as: UTF8.self)
-        #expect(raw.contains("ALPHA"))
-        #expect(raw.contains("BETA"))
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let enumValues = try #require(json["enum"] as? [String])
+        #expect(Set(enumValues) == ["ALPHA", "BETA"])
+
+        let zero = try #require(info.zeroInstance as? CustomKindHolder)
+        #expect(zero.kind == .alpha)
     }
 
     @Test("Field order matches Decodable init traversal, not alphabetical")
