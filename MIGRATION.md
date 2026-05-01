@@ -21,8 +21,9 @@ For each existing type you want to migrate, walk these in order:
 
 - [ ] **Is it a `struct`?** Classes, actors, and `enum` (other than raw-value via `CastEnum`) are not supported by `@Castable`. The macro emits a `requiresStruct` diagnostic for non-structs.
 - [ ] **Are all stored properties `Sendable`?** Closures, `class` references, `weak` refs, `NSObject` subclasses, and most `AnyObject`-typed values are not.
-- [ ] **Are all stored properties `Decodable`?** `URL`, primitives, arrays of `Decodable`, optionals of `Decodable`, and other `@Castable` types are fine. Custom types with `init(from:)` are fine.
+- [ ] **Are all stored properties `Decodable`?** Primitives (`String`, `Int`, `Double`, `Float`, `Bool`), arrays of `Decodable`, optionals of `Decodable`, and other `@Castable` types are fine. Custom types with `init(from:)` are fine.
 - [ ] **Are nested types also `@Castable`** (or otherwise `Decodable`)?
+- [ ] **No bare Foundation value types as fields.** `Date`, `URL`, `UUID`, `Data`, `Decimal` raise a compile-time `unknownNonPrimitiveType` error in v1.0+. See the *Foundation types* section below for the two supported workarounds.
 - [ ] **No generics with unbounded type parameters.** The macro reads syntactic types and won't infer constraints; if you need `MyType<T>`, give it `<T: Decodable & Sendable>` and don't expect the macro to do that for you.
 
 If every box is ticked, `@Castable struct Foo { ... }` will compile and `model.cast(_, as: Foo.self)` will work.
@@ -198,6 +199,50 @@ Other knobs:
 - Bump `config.maxTokens`.
 - Trim your schema (smaller types decode faster, less risk of truncation).
 - Use `castJSON` and inspect the raw output to confirm the issue is truncation vs. a hallucinated field. `castJSON` never repairs — by contract, callers asked for raw bytes.
+
+---
+
+## 3. Foundation types
+
+The `@Castable` macro recognizes a fixed set of primitives (`String`, `Int`, `Double`, `Float`, `Bool`, arrays of those, plus other `@Castable` structs). Foundation value types — `Date`, `URL`, `UUID`, `Data`, `Decimal` — are **not** primitives from the macro's perspective: it can't synthesize a JSON Schema or grammar for them.
+
+> **Breaking change in v1.0:** prior versions emitted a *warning* and let expansion proceed; the consumer's downstream compile error was `<TypeName>.PartiallyGenerated.PartiallyGenerated?` — cryptic and hard to trace. As of v1.0, an `unknownNonPrimitiveType` field is a compile **error** at the macro site so the diagnostic is what you see, not a chain reaction in synthesized code.
+
+### Workaround 1: pre-convert at the model boundary
+
+Make the field a primitive that round-trips through JSON, and convert in your application code:
+
+```swift
+@Castable
+struct Event {
+    var whenISO8601: String = ""   // instead of Date
+    var idString: String = ""      // instead of UUID
+    var attachmentBase64: String = "" // instead of Data
+}
+
+let event: Event = try await model.cast("…")
+let when = ISO8601DateFormatter().date(from: event.whenISO8601)
+```
+
+This is the path most consumers take; it keeps the schema small and the prompt easy for the model to satisfy.
+
+### Workaround 2: wrap the Foundation type in a small `@Castable`
+
+If you genuinely want the field to read as `Date` at the call site, give the macro a struct it can synthesize:
+
+```swift
+@Castable
+struct ISODate {
+    var iso8601: String = ""
+}
+
+@Castable
+struct Event {
+    var when: ISODate = ISODate()
+}
+```
+
+Then derive a `Date` from `event.when.iso8601` at the call site.
 
 ---
 
