@@ -68,7 +68,7 @@ Use descriptive branch names:
 | `CastModel+Timeout.swift` | internal cross-isolation glue (`withGenerationTimeout`, `withInFlightRegistration`) | new public API |
 | `CastModel+GPUSafety.swift` | Metal/MLX lifecycle plumbing (`cleanupGPU`, global error handler) | code that doesn't touch `MLX.Stream` / `Memory` |
 
-If a new method doesn't fit any existing surface, add a new `CastModel+<Surface>.swift` rather than overloading one of the above. The first line of every such file should be a 2–3 line `// File rationale: …` comment that states what it owns and what it doesn't.
+If a new method doesn't fit any existing surface, add a new `CastModel+<Surface>.swift` rather than overloading one of the above. The first line of every such file should be a short header `// File rationale: …` comment that states what it owns and what it doesn't.
 
 ## Pull Request Process
 

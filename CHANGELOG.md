@@ -8,6 +8,11 @@ GitHub Releases (auto-generated from squash-merged PR titles) remain the canonic
 
 ## [Unreleased]
 
+### Added
+
+- `CastModel.extract(from:as:instruction:…)` — extraction-flavored entrypoint.
+- `CastModel.castStream(...)` — `AsyncSequence` of `PartialResult<T>` for streaming partial decoding.
+
 ## [0.1.0] - 2026-04-30
 
 First public release. Cast ships as an Apache-2.0 Swift Package: type-safe structured output from any local LLM on Apple Silicon via constrained decoding.
@@ -15,12 +20,12 @@ First public release. Cast ships as an Apache-2.0 Swift Package: type-safe struc
 ### Added
 
 - `@Castable` macro that synthesizes JSON Schema, `Decodable`, and a `PartiallyGenerated` mirror from an annotated struct.
-- `CastModel` with `cast`, `castJSON`, `classify`, `extract`, and `castStream` entrypoints; `init(wrapping:configuration:)` for caller-managed `ModelContainer` lifetimes.
+- `CastModel` with `cast`, `castJSON`, and `classify` entrypoints; `init(wrapping:configuration:)` for caller-managed `ModelContainer` lifetimes.
 - Property wrappers covering schema constraints: `@MaxLength`/`@MinLength`, `@Count`/`@MaxCount`/`@MinCount`, `@CastRange`, `@Precision`, `@Pattern`, `@OneOf`, `@Description`, `@Examples`, `@Nullable`, `@DefaultValue`, `@Validator`.
 - `JSONSchema.excluding(fields:)` for dynamic schema modification at call time.
 - `CastModel.prepare(_:)` warm-up to pay grammar-compilation cost upfront.
 - `didGenerate` callback for cooperative cancellation; `abortInFlight()` plus iOS background-safety hooks (`enableBackgroundSafety()` / `disableBackgroundSafety()`).
-- DocC documentation site auto-generated from runnable `Examples/` snippets (9 example targets).
+- DocC documentation site auto-generated from runnable `Examples/` snippets.
 - README, MIGRATION guide, security policy, and contributing guide.
 
 ### Changed

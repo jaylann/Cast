@@ -202,11 +202,14 @@ struct SchemaExcludingTests {
         let reduced = schema.excluding(fields: ["name"])
         let json = try schemaDict(reduced)
         let props = json["properties"] as? [String: Any]
+        let topRequired = json["required"] as? [String] ?? []
         let nested = props?["address"] as? [String: Any]
         let nestedProps = nested?["properties"] as? [String: Any]
         let nestedRequired = nested?["required"] as? [String] ?? []
 
         #expect(props?["name"] == nil)
+        #expect(!topRequired.contains("name"))
+        #expect(topRequired.contains("address"))
         #expect(nestedProps?["street"] != nil)
         #expect(nestedProps?["zip"] != nil)
         #expect(nestedRequired.contains("street"))
@@ -263,15 +266,18 @@ struct SchemaExcludingTests {
         #expect(json["additionalProperties"] as? Bool == false)
     }
 
-    @Test("excluding survives schemas that emit __N__ deduplication markers")
-    func survivesDeduplicationMarkers() throws {
-        // The upstream JSONSchema encoder emits `__N__` substrings to
-        // deduplicate structurally-identical sub-schemas. `excluding` strips
-        // them in its intermediate dict via regex before `JSONSerialization`
-        // would otherwise reject them. Reusing `inner` in two sibling
-        // positions reliably triggers the marker emission; the test locks
-        // that the round-trip still produces a usable schema with the
-        // expected remaining fields.
+    @Test("top-level field exclusion preserves siblings on schemas with shared sub-schemas")
+    func preservesSiblingsWithSharedSubSchemas() throws {
+        // Reuses `inner` in two sibling positions, which reliably triggers
+        // the upstream JSONSchema encoder's `__N__` deduplication markers in
+        // the raw JSON. `JSONSchema.excluding` strips those markers in its
+        // intermediate JSON-string pass.
+        //
+        // Note: the `schemaDict(_:)` helper below ALSO regex-strips `__N__`
+        // before `JSONSerialization`, so this test does not lock
+        // marker-handling inside `excluding` itself — it only locks that
+        // top-level field exclusion preserves the surviving siblings when
+        // the schema graph contains shared sub-schemas.
         let inner = JSONSchema.object(
             properties: OrderedDictionary(
                 dictionaryLiteral:
@@ -327,6 +333,7 @@ struct SchemaExcludingTests {
         #expect(Set(onceProps.keys) == Set(twiceProps.keys))
         #expect(onceProps.keys.sorted() == ["a", "c"])
         #expect(onceRequired == twiceRequired)
+        #expect(!onceRequired.contains("b"))
     }
 
     @Test("excluding non-object schema returns input unchanged")

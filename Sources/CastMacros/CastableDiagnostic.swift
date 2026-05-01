@@ -36,7 +36,7 @@ enum CastableDiagnostic: DiagnosticMessage {
         case .precisionOnNonFloat:
             "@Precision can only be applied to Double or Float properties"
         case let .unknownNonPrimitiveType(typeName):
-            "'\(typeName)' is not a Cast-supported type. Wrap it in a small @Castable struct, or pre-convert to a primitive at the model boundary (e.g. ISO-8601 String for Date, raw bytes for Data). See the 'Foundation types' section of MIGRATION.md."
+            "'\(typeName)' is not a Cast-supported type. Wrap it in a small @Castable struct, or pre-convert to a primitive at the model boundary (e.g. ISO-8601 String for Date, Base64 String or `[UInt8]`/`[Int]` for Data). See the 'Foundation types' section of MIGRATION.md."
         }
     }
 
@@ -56,6 +56,14 @@ enum CastableDiagnostic: DiagnosticMessage {
     }
 
     var severity: DiagnosticSeverity {
-        .error
+        // Kept as a `switch self` even though every case currently maps to
+        // `.error`: this preserves the load-bearing structure for any future
+        // `.warning` case without requiring contributors to rediscover the
+        // pattern (and the matching `hasError` early-return guard in
+        // `CastableMacro.expansion`). See CLAUDE.md "Learnings" entry.
+        switch self {
+        default:
+            .error
+        }
     }
 }
