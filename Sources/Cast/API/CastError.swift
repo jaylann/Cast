@@ -22,6 +22,11 @@ public enum CastError: LocalizedError, Sendable {
     /// or `abortInFlight()`). `partialOutput` is the bytes generated up to
     /// the cancel point.
     case cancelled(partialOutput: String?)
+    /// The requested model could not be located on disk. Currently thrown
+    /// for `.bundle` sources whose `resourceName` doesn't resolve in the
+    /// given `Bundle`. May also surface for invalid `.directory` URLs once
+    /// upfront-existence validation is added.
+    case modelNotFound(String)
 
     public var errorDescription: String? {
         switch self {
@@ -49,6 +54,8 @@ public enum CastError: LocalizedError, Sendable {
             } else {
                 "Generation cancelled before any output was produced."
             }
+        case let .modelNotFound(detail):
+            "Model not found: \(detail)"
         }
     }
 }

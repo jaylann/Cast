@@ -57,6 +57,10 @@ public final class CastModel: Sendable {
 
     /// Download (if needed) and load an MLX model by its Hugging Face id.
     ///
+    /// Convenience for the most common case. For local directories, app-bundled
+    /// models, or custom HF mirror endpoints, use ``load(_:progress:)-(ModelSource,_)``
+    /// with a ``ModelSource``.
+    ///
     /// ```swift
     /// let model = try await CastModel.load("mlx-community/Llama-3.2-3B-Instruct-4bit")
     /// ```
@@ -69,8 +73,45 @@ public final class CastModel: Sendable {
         _ modelId: String,
         progress: (@Sendable (Progress) -> Void)? = nil
     ) async throws -> CastModel {
-        let configuration = ModelConfiguration(id: modelId)
+        try await load(.huggingFace(id: modelId), progress: progress)
+    }
+
+    /// Download (if needed) and load an MLX model from any ``ModelSource`` —
+    /// Hugging Face Hub, a local directory, an app-bundled resource, or a
+    /// custom HF-shaped endpoint.
+    ///
+    /// ```swift
+    /// // Local pre-downloaded model
+    /// let model = try await CastModel.load(
+    ///     .directory(URL(fileURLWithPath: "/Users/me/Models/llama-3.2-3b-4bit"))
+    /// )
+    ///
+    /// // Corporate HF mirror
+    /// guard let endpoint = URL(string: "https://hf-mirror.corp.example.com") else {
+    ///     throw URLError(.badURL)
+    /// }
+    /// let model = try await CastModel.load(
+    ///     .customEndpoint(
+    ///         id: "internal/llama-3.2-3b-4bit",
+    ///         endpoint: endpoint,
+    ///         revision: "v1.0"
+    ///     )
+    /// )
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - source: Where to find the model.
+    ///   - progress: Optional download/load progress callback. **No-op** for
+    ///     `.directory` and `.bundle` sources — they have nothing to download,
+    ///     so the callback never fires. Only meaningful for `.huggingFace` and
+    ///     `.customEndpoint`.
+    public static func load(
+        _ source: ModelSource,
+        progress: (@Sendable (Progress) -> Void)? = nil
+    ) async throws -> CastModel {
+        let (configuration, hub) = try source.resolved()
         let container = try await LLMModelFactory.shared.loadContainer(
+            hub: hub,
             configuration: configuration
         ) { prog in
             progress?(prog)

@@ -48,6 +48,11 @@ let package = Package(
             ]
         ),
         .executableTarget(
+            name: "CustomModelSource",
+            dependencies: [.product(name: "Cast", package: "Cast")],
+            path: "Sources/CustomModelSource"
+        ),
+        .executableTarget(
             name: "ValidatorAndExcluding",
             dependencies: [.product(name: "Cast", package: "Cast")]
         ),
