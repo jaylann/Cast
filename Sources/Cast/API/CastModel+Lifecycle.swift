@@ -109,12 +109,13 @@ public extension CastModel {
                 Memory.clearCache()
             }
 
+            let observers = _LifecycleObservers(
+                didEnterBackground: didEnter,
+                willResignActive: willResign,
+                memoryWarning: memWarn
+            )
             _observers.withLock { dict in
-                dict[key] = _LifecycleObservers(
-                    didEnterBackground: didEnter,
-                    willResignActive: willResign,
-                    memoryWarning: memWarn
-                )
+                dict[key] = observers
             }
         }
 
