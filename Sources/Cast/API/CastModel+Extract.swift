@@ -48,7 +48,7 @@ public extension CastModel {
             throw CastError.schemaGenerationFailed(error.localizedDescription)
         }
 
-        let built = PromptEngine.buildExtractionPrompt(
+        let built = try PromptEngine.buildExtractionPrompt(
             text: text,
             instruction: instruction,
             schema: schema,
